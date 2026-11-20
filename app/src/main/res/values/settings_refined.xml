@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_refined_appearance">Appearance</string>
+    <string name="settings_refined_payments">Payments</string>
+    <string name="settings_refined_permissions">Permissions</string>
+    <string name="settings_refined_about">About Flowpay</string>
+    <string name="settings_refined_data">App data</string>
+    <string name="settings_official_title">Official APK</string>
+    <string name="settings_official_message">This is the official APK distributed by Flowpay. It does not include SMS parsing. For the SMS parsing version, visit our GitHub project.</string>
+    <string name="settings_github_action">View on GitHub</string>
+    <string name="settings_refined_privacy_summary">Your data and app permissions</string>
+    <string name="settings_refined_reset_summary">Delete history and reset settings</string>
+    <string name="settings_refined_phone_summary">Set up and make payment calls</string>
+    <string name="settings_refined_camera_summary">Scan a UPI QR code</string>
+    <string name="settings_refined_contacts_summary">Choose someone to pay</string>
+    <string name="settings_refined_allowed">Allowed</string>
+    <string name="settings_refined_allow">Allow</string>
+    <string name="settings_refined_selected">Selected</string>
+    <string name="settings_refined_clear_message">This permanently deletes your payment history and resets all settings. You will return to setup. This cannot be undone.</string>
+    <string name="settings_bank_title">Bank</string>
+    <string name="settings_sim_title">Primary SIM</string>
+    <string name="settings_reset_title">Reset Flowpay?</string>
+    <string name="settings_reset_action">Delete all data</string>
+</resources>

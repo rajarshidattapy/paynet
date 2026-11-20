@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="test_setup_title">Set up payments</string>
+    <string name="test_setup_subtitle">Choose a method to set up on your bank-linked SIM.</string>
+    <string name="test_setup_scan">Scan and pay</string>
+    <string name="test_setup_contact">Pay a contact</string>
+    <string name="test_setup_jio">Unavailable on Jio</string>
+    <string name="test_setup_retry_scan">Not set up. Tap to try again.</string>
+    <string name="test_setup_ussd_service">Set up with *99#</string>
+    <string name="test_setup_upi_service">Set up with UPI 123Pay</string>
+    <string name="test_setup_not_checked">Not checked</string>
+    <string name="test_setup_checking">Setting up…</string>
+    <string name="test_setup_ready">Set up</string>
+    <string name="test_setup_unavailable">Unavailable</string>
+    <string name="test_setup_completed">Completed</string>
+    <string name="test_setup_start_call">Start setup call</string>
+</resources>

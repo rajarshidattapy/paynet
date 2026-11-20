@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_refined_title">Set up</string>
+    <string name="setup_refined_subtitle">Choose the bank and SIM you use for UPI.</string>
+    <string name="setup_refined_bank">Bank</string>
+    <string name="setup_refined_sim">SIM cards</string>
+    <string name="setup_refined_bank_hint">Your UPI-linked bank account.</string>
+    <string name="setup_refined_sim_hint">Use the SIM linked to your bank account.</string>
+    <string name="setup_refined_accept_disclaimer">I have read and understood the disclaimer.</string>
+    <string name="setup_refined_read_disclaimer">Read disclaimer</string>
+    <string name="setup_refined_hide_disclaimer">Hide disclaimer</string>
+</resources>
