@@ -29,7 +29,7 @@ fun keystoreProp(key: String): String = keystoreProperties[key] as? String
     )
 
 android {
-    namespace = "com.flowpay.app"
+    namespace = "com.paynet.app"
     compileSdk = 36
     // Pinned, not "whatever AGP resolves": aapt2 and zipalign differ between
     // build-tools revisions, so leaving this floating makes the reproducible
@@ -37,7 +37,7 @@ android {
     buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        applicationId = "com.flowpay.app.sms"
+        applicationId = "com.paynet.app.sms"
         minSdk = 29
         targetSdk = 36
         // versionCode is monotonic and independent of versionName: builds with
@@ -103,13 +103,13 @@ android {
                 applicationIdSuffix = ".installpreview"
                 versionNameSuffix = "-installpreview"
                 buildConfigField("String", "INSTALL_METRICS_URL", "\"http://127.0.0.1:8766/api/installs\"")
-                resValue("string", "app_name", "Flowpay install preview")
+                resValue("string", "app_name", "PayNet install preview")
             }
             // UI checks use a separate install and never alter the user's setup.
             if (project.hasProperty("isolatedDeviceTest")) {
                 applicationIdSuffix = ".setupcheck"
                 versionNameSuffix = "-setupcheck"
-                resValue("string", "app_name", "Flowpay setup test")
+                resValue("string", "app_name", "PayNet setup test")
             }
             if (project.hasProperty("deviceReleaseSigning") && keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
@@ -203,8 +203,8 @@ kover {
         filters {
             includes {
                 packages(
-                    "com.flowpay.app.payment",
-                    "com.flowpay.app.telephony"
+                    "com.paynet.app.payment",
+                    "com.paynet.app.telephony"
                 )
             }
         }

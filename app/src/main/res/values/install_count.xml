@@ -1,5 +1,5 @@
 <resources>
-    <string name="install_count_title">Help us count Flowpay.</string>
+    <string name="install_count_title">Help us count PayNet.</string>
     <string name="install_count_body">Share a one-time installation report when you have internet. It contains a random installation ID and app version. Our server also receives the connection IP address, but does not save it in the install counter.\n\nYour name, contacts, messages and payment details stay out of this report. Payments still work without internet.\n\nThis is optional. Change your choice in Settings. Turning it off stops unsent reports; it does not remove a report already counted.</string>
     <string name="install_count_allow">Share installation</string>
     <string name="install_count_decline">Keep sharing off</string>

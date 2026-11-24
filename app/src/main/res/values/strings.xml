@@ -1,8 +1,8 @@
 <resources>
-    <string name="app_name">Flowpay SMS</string>
+    <string name="app_name">PayNet SMS</string>
     
     <!-- Setup Screen Strings -->
-    <string name="setup_flowpay">Setup Flowpay</string>
+    <string name="setup_paynet">Setup PayNet</string>
     <string name="configure_upi_payments">Configure your UPI payments</string>
     <string name="bank_selection">Bank Selection</string>
     <string name="choose_primary_bank">Choose your primary bank for UPI payments</string>
@@ -12,8 +12,8 @@
     <string name="secondary_sim">Secondary SIM</string>
     <string name="complete_setup">Complete Setup</string>
     <string name="disclaimer">Disclaimer</string>
-    <string name="disclaimer_summary">Flowpay never touches your money or your UPI PIN. It only dials your bank\'s *99# / UPI 123 flow for you. Tap to read the full disclaimer.</string>
-    <string name="disclaimer_text">Flowpay is a free, open-source app. It is not a bank, wallet, or payment processor, and never holds your money.\n\nFlowpay opens the *99# or UPI 123Pay call flow. You authorise payments directly with your bank. Flowpay is not affiliated with NPCI or any bank.\n\nYour UPI PIN is entered only in the bank dialer or IVR flow. Flowpay processes incoming bank SMS only during an active payment attempt. It never reads your inbox or uses accessibility services.\n\nPayment records stay on your device. Payment results are detected from matching bank confirmation messages. Missing messages do not prove that a payment failed. Check with your bank or recipient before retrying.\n\nBy continuing, you confirm that you have read and understood this.</string>
+    <string name="disclaimer_summary">PayNet never touches your money or your UPI PIN. It only dials your bank\'s *99# / UPI 123 flow for you. Tap to read the full disclaimer.</string>
+    <string name="disclaimer_text">PayNet is a free, open-source app. It is not a bank, wallet, or payment processor, and never holds your money.\n\nPayNet opens the *99# or UPI 123Pay call flow. You authorise payments directly with your bank. PayNet is not affiliated with NPCI or any bank.\n\nYour UPI PIN is entered only in the bank dialer or IVR flow. PayNet processes incoming bank SMS only during an active payment attempt. It never reads your inbox or uses accessibility services.\n\nPayment records stay on your device. Payment results are detected from matching bank confirmation messages. Missing messages do not prove that a payment failed. Check with your bank or recipient before retrying.\n\nBy continuing, you confirm that you have read and understood this.</string>
     
     <!-- Bank Names -->
     
@@ -35,10 +35,10 @@
          release builds are minified, so `e.message` there reads as an
          R8-obfuscated class name. The detail belongs in the adjacent
          Log.e(TAG, "…", e) call, which carries the throwable. -->
-    <string name="error_permissions_denied">Some permissions were denied. Flowpay may not work correctly without them.</string>
-    <string name="error_call_permission_denied">Flowpay needs permission to place the call.</string>
+    <string name="error_permissions_denied">Some permissions were denied. PayNet may not work correctly without them.</string>
+    <string name="error_call_permission_denied">PayNet needs permission to place the call.</string>
     <string name="error_call_failed">Could not start the payment call. Please try again.</string>
-    <string name="error_audio_permission">Flowpay needs permission to adjust call audio.</string>
+    <string name="error_audio_permission">PayNet needs permission to adjust call audio.</string>
     <string name="error_audio_lower_failed">Could not lower the call volume.</string>
     <string name="error_audio_restore_failed">Could not restore the call volume.</string>
     <string name="error_qr_scanner_init">Could not open the QR scanner.</string>
@@ -49,7 +49,7 @@
     <string name="error_enter_phone_and_amount">Enter both a phone number and an amount.</string>
     <string name="error_invalid_phone_number">Enter a valid 10-digit phone number.</string>
     <string name="error_invalid_amount">Enter a valid amount.</string>
-    <string name="error_phone_permission_required">Flowpay needs phone permissions to place the payment call.</string>
+    <string name="error_phone_permission_required">PayNet needs phone permissions to place the payment call.</string>
     <string name="error_payment_not_started">The payment could not be started. Please try again.</string>
     <string name="error_call_permission_required_ussd">Phone call permission is required to test USSD.</string>
     <string name="error_call_permission_required_payments">Phone call permission is required for USSD payments.</string>
@@ -75,11 +75,11 @@
          stand in for, shortened to fit a toast. -->
     <string name="toast_payment_cancelled">Payment cancelled. No payment was processed.</string>
     <string name="toast_payment_failed">Your bank reported the payment as failed.</string>
-    <string name="toast_awaiting_confirmation">Return to Flowpay to record the outcome.</string>
+    <string name="toast_awaiting_confirmation">Return to PayNet to record the outcome.</string>
     <string name="warn_voice_sim_mismatch">Note: this call will use your default calling SIM (%1$s), which doesn\'t look like the %2$s SIM from setup. If the payment fails, switch your default calling SIM.</string>
 
     <!-- Progress and outcome notices from setup and the connectivity test -->
-    <string name="status_requesting_permissions">Requesting the permissions Flowpay needs…</string>
+    <string name="status_requesting_permissions">Requesting the permissions PayNet needs…</string>
     <string name="status_opening_scanner">Opening the QR scanner…</string>
     <string name="status_permissions_granted_ussd">Permissions granted. You can test USSD now.</string>
     <string name="status_setup_complete">Setup complete.</string>
@@ -93,7 +93,7 @@
     <string name="qr_status_initiating_call">Calling your bank…</string>
     <string name="qr_status_call_initiated">Call started</string>
     <string name="qr_status_complete_in_dialer">Complete the payment in the dialer.</string>
-    <string name="qr_status_ussd_completed">Return to Flowpay to record the outcome.</string>
+    <string name="qr_status_ussd_completed">Return to PayNet to record the outcome.</string>
     <string name="qr_status_terminated">Cancelled. Returning to the main screen…</string>
 
     <!-- Success Messages -->
@@ -110,7 +110,7 @@
     <string name="dialog_failed_title">Transaction Failed</string>
     <string name="dialog_failed_message">Your bank reported the payment as failed. Any debited amount is normally reversed automatically — check your bank if it isn\'t.</string>
     <string name="dialog_awaiting_title">Request Sent</string>
-    <string name="dialog_awaiting_message">Complete any bank callback, then return to Flowpay to record your answer.</string>
+    <string name="dialog_awaiting_message">Complete any bank callback, then return to PayNet to record your answer.</string>
     <string name="action_ok">OK</string>
     <string name="action_got_it">Got it</string>
     <string name="action_transfer">Transfer</string>
@@ -165,8 +165,8 @@
     <string name="overlay_connecting">Connecting to the UPI service…</string>
     <string name="overlay_sending_request">Sending your payment request…</string>
     <string name="overlay_authentication_notice">On the bank callback for this payment, check the amount and recipient. Press 1 to confirm, then enter your UPI PIN when prompted.</string>
-    <string name="overlay_pin_notice">Flowpay never asks for your UPI PIN. Your bank will call you — enter your PIN on that call.</string>
-    <string name="overlay_request_sent">Complete the payment with your bank, then return to Flowpay.</string>
+    <string name="overlay_pin_notice">PayNet never asks for your UPI PIN. Your bank will call you — enter your PIN on that call.</string>
+    <string name="overlay_request_sent">Complete the payment with your bank, then return to PayNet.</string>
     <string name="amount_rupees">₹%1$s</string>
     <string name="percent_format">%1$d%%</string>
     <string name="cd_payment_outgoing">Outgoing</string>
@@ -297,7 +297,7 @@
     <string name="qr_payment_guide_status">Complete the payment in your bank’s menu.</string>
     <string name="payment_callback_later">Not now</string>
 
-    <string name="home_tagline">Payments without internet</string>
+    <string name="home_tagline">UPI payments, even offline</string>
     <string name="home_settings">Settings</string>
     <string name="home_connected_bank">Connected bank</string>
     <string name="home_scan">Scan QR</string>
@@ -330,7 +330,7 @@
 
 <string name="sms_waiting_confirmation">Waiting for your bank’s confirmation message</string>
 <string name="sms_permission_title">Bank payment confirmations</string>
-<string name="sms_permission_explanation">Allow incoming SMS to detect your bank’s payment result during an active payment attempt. Flowpay never reads your inbox. Messages are processed on this device. Without this permission, automatic confirmation is unavailable.</string>
+<string name="sms_permission_explanation">Allow incoming SMS to detect your bank’s payment result during an active payment attempt. PayNet never reads your inbox. Messages are processed on this device. Without this permission, automatic confirmation is unavailable.</string>
 <string name="sms_permission_allow">Continue</string>
 <string name="sms_permission_later">Not now</string>
 </resources>

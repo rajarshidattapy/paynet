@@ -1,4 +1,4 @@
-# Contributing to Flowpay
+# Contributing to PayNet
 
 Thanks for your interest in contributing. This guide covers everything you need to get a development build running and to submit a change.
 
@@ -17,7 +17,7 @@ Thanks for your interest in contributing. This guide covers everything you need 
 
 ```bash
 git clone <repo-url>
-cd Flowpay_v1
+cd PayNet_v1
 ```
 
 Create `local.properties` at the repo root (it is gitignored):
@@ -50,7 +50,7 @@ The SMS parser is only as good as its corpus of real bank confirmation formats, 
 ## Project layout
 
 ```
-app/src/main/java/com/flowpay/app/
+app/src/main/java/com/paynet/app/
 ├── MainActivity.kt                  # entry screen
 ├── SetupActivity.kt                 # first-run setup
 ├── TestConfigurationActivity.kt     # post-setup USSD/UPI test gate

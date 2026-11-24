@@ -1,0 +1,11 @@
+PayNet
+Copyright 2026 PayNet contributors
+
+This product includes software originally developed by the Flowpay project
+(https://github.com/Flowpayup/Payments-Without-Internet), licensed under the
+Apache License, Version 2.0 (see LICENSE). Original copyright notices are
+retained in the source file headers.
+
+PayNet is a modified and rebranded distribution of that software: renamed
+application and package (com.paynet.app), new brand identity, icon and
+wordmark artwork, a new theme palette, and rewritten documentation.

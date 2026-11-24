@@ -15,34 +15,28 @@ are not backported — update to the newest release.
 
 ## Verifying you have a genuine build
 
-We'll be sharing an updated version of Flowpay on this repository's [GitHub Releases](https://github.com/Flowpayup/Payments-Without-Internet/releases).
+We'll be sharing an updated version of PayNet on this repository's [GitHub Releases](https://github.com/rajarshidattapy/paynet/releases).
 Use that page for official APK downloads when available. In the meantime,
 you can build from source with [Running it](README.md#running-it).
 
 The signing certificate is the trust anchor. Fake UPI apps are common in
-India, and an APK claiming to be Flowpay can come from anywhere; the
-fingerprint below is how you would tell. It was committed ahead of the first
-APK release, so it cannot be back-dated later.
+India, and an APK claiming to be PayNet can come from anywhere. No signed
+PayNet APK has been published yet, so **any PayNet APK you find in the wild
+today is not official** — build from source instead.
 
-```
-Release signing certificate SHA-256:
-  64:28:F5:18:05:90:8F:85:2F:A3:63:76:A4:D2:A9:53:31:D1:1D:0A:03:DC:16:12:25:06:EA:E5:D3:68:A8:82
-
-Subject: CN=Flowpay, O=Flowpay, L=Bengaluru, C=IN
-```
-
-Check any APK against it:
+The release signing certificate's SHA-256 fingerprint will be committed here
+ahead of the first APK release, so it cannot be back-dated later. When it
+lands, check any APK against it:
 
 ```bash
-apksigner verify --print-certs flowpay-vX.Y.Z.apk
+apksigner verify --print-certs paynet-vX.Y.Z.apk
 ```
 
 Compare against the fingerprint committed **here**, not against the release
 notes — release notes are written by whoever published the release, so checking
-them against themselves proves nothing. The fingerprint above is tamper-evident
-through git history.
+them against themselves proves nothing.
 
-A change to this fingerprint in a future version means the signing key changed.
+A change to the fingerprint in a future version means the signing key changed.
 That is not normal; ask before installing.
 
 Building from source remains fully supported and needs none of this — see
@@ -50,9 +44,9 @@ Building from source remains fully supported and needs none of this — see
 
 ## Reporting a vulnerability
 
-Email **`flowpay28@gmail.com`** with the subject line:
+Email **`rayan05rio@gmail.com`** with the subject line:
 
-> `Flowpay UPI — Security report — <one-line summary>`
+> `PayNet UPI — Security report — <one-line summary>`
 
 Please include:
 
@@ -97,7 +91,7 @@ What the app stores, where, and for how long:
 
 | Data | Where | Lifetime | Leaves the device? |
 |------|-------|----------|--------------------|
-| Transaction rows (amount, status, bank, bank ref, counterparty name, privacy-safe summary) | Room DB `flowpay_database`, app-private storage | Until the user deletes them or uninstalls | **Never** — excluded from cloud backup and device transfer (`backup_rules.xml`, `data_extraction_rules.xml`) |
+| Transaction rows (amount, status, bank, bank ref, counterparty name, privacy-safe summary) | Room DB `paynet_database`, app-private storage | Until the user deletes them or uninstalls | **Never** — excluded from cloud backup and device transfer (`backup_rules.xml`, `data_extraction_rules.xml`) |
 | Raw bank SMS bodies | **Not stored** (since schema v3) | — | The verbatim SMS stays in the user's SMS inbox app only |
 | Active payment-operation window (expected amount, recipient number, ~10-min deadline) | `payment_operation` SharedPreferences | Cleared on confirmation or timeout | Never — excluded from backup |
 | UPI PIN | **Never seen by the app** — entered into the bank's IVR/dialer flow | — | — |

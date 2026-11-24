@@ -8,7 +8,7 @@
     <string name="detail_copy_field">Copy %1$s</string>
     <string name="detail_delete_record">Delete record</string>
     <string name="detail_delete_explanation">This removes the record from this device. It cannot be undone and does not affect the actual payment.</string>
-    <string name="detail_user_reported">Recorded by you. Flowpay has not verified the bank outcome.</string>
+    <string name="detail_user_reported">Recorded by you. PayNet has not verified the bank outcome.</string>
     <string name="detail_status_completed">Completed</string>
     <string name="detail_status_failed">Failed</string>
     <string name="detail_status_cancelled">Cancelled</string>
