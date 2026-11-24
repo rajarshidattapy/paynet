@@ -94,7 +94,8 @@ Feature inventory (Kotlin source → planned Python module):
 |---|---------|--------|-------|-------|
 | 1 | Payment validation + dial-string + utils | ✅ Done | pytest (ported 1:1) | Desktop-verified |
 | 2 | App shell + theme | ✅ Done | import smoke | UI placeholder only |
-| 3–17 | Remaining features | ⬜ Pending | | |
+| 3 | SMS transaction parser | ✅ Done | pytest (full bank corpus + regex blocks, 1:1) | Desktop-verified; broadcast-receiver wiring is feature 6 |
+| 4–17 | Remaining features | ⬜ Pending | | |
 
 Test command: `cd kivy && python -m pytest tests -q`
 Run command: `cd kivy && python main.py`
