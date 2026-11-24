@@ -202,6 +202,25 @@ class Glyph(Widget):
                 Line(points=[x + w * .26, y + h * .26, x + w * .44, y + h * .48,
                              x + w * .56, y + h * .34, x + w * .74, y + h * .52],
                      width=lw * .7, cap="round", joint="round")
+            elif self._kind == "bank":
+                # AccountBalance stand-in: roof, three column bars, base.
+                Line(points=[x + w * .15, y + h * .62, x + w * .5, y + h * .86,
+                             x + w * .85, y + h * .62], width=lw, cap="round", joint="round")
+                for cx in (.27, .46, .65):
+                    Rectangle(pos=(x + w * cx, y + h * .3), size=(w * .08, h * .26))
+                Rectangle(pos=(x + w * .15, y + h * .14), size=(w * .7, h * .08))
+            elif self._kind == "sim":
+                # SimCard stand-in: notched card outline with a chip.
+                Line(rounded_rectangle=(x + w * .24, y + h * .14, w * .52, h * .72, w * .08), width=lw)
+                Rectangle(pos=(x + w * .36, y + h * .3), size=(w * .28, h * .3))
+            elif self._kind == "chevron":
+                Line(points=[x + w * .25, y + h * .62, x + w * .5, y + h * .34,
+                             x + w * .75, y + h * .62], width=lw, cap="round", joint="round")
+            elif self._kind == "dashboard":
+                # DashboardCustomize stand-in: a 2x2 grid of rounded squares.
+                s = w * .3
+                for cx, cy in ((.16, .54), (.54, .54), (.16, .16), (.54, .16)):
+                    Line(rounded_rectangle=(x + w * cx, y + h * cy, s, s, w * .07), width=lw * .8)
             elif self._kind == "phone":
                 # Handset: earpiece, arc, mouthpiece.
                 Line(circle=(x + w * .5, y + h * .42, w * .3, 200, 340), width=lw)

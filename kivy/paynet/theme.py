@@ -36,6 +36,10 @@ TEXT_PALE = _rgba(0xFFC9C6D6)         # long-form body on dark dialogs
 # ---- Onboarding / receipt dialog palette (ui/theme/OnboardingColors.kt) ----
 ONBOARDING_SURFACE = _rgba(0xFF1C1C1E)
 ONBOARDING_SECONDARY = _rgba(0xFF98989D)
+ONBOARDING_THUMB = _rgba(0xFFAEAEB2)
+ONBOARDING_TRACK = _rgba(0xFF3A3A3C)
+ONBOARDING_OUTLINE = _rgba(0xFF636366)
+ONBOARDING_BODY = _rgba(0xFFB6B6BC)
 TEXT_WHITE = _rgba(0xFFFFFFFF)
 WELCOME_TEXT = _rgba(0xFFF4F3FA)
 

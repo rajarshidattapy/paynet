@@ -23,7 +23,8 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 
-from paynet import theme
+from paynet import onboarding, theme
+from paynet import setup as setup_logic
 from paynet.db.database import Database
 from paynet.db.settings import PrefsStore, TestResultsManager
 from paynet.payment.initiate import TransferInitiator
@@ -79,39 +80,38 @@ class PayNetApp(App):
 
         sm = ScreenManager()
         home_screen = Screen(name="home")
-        # HomeDashboard.kt: the legacy dashboard only when the appearance is
-        # classic and not monochrome.
-        if appearance.classic and not appearance.monochrome:
-            self.home = LegacyHomeScreen(
-                bank_name=home_bank_name(bank),
-                monochrome=False,
-                is_upi123_ready=bool(results and results.upi123Enabled),
-                is_ussd_ready=bool(results and results.ussdEnabled),
-                on_settings=self._open_settings,
-                on_history=self._open_history,
-                on_retry=self.container.transaction_view_model.refresh,
-                on_transaction=self._open_transaction,
-                on_scan=self._open_scanner,
-                on_pay_contact=self._open_pay_contact,
-            )
-        else:
-            self.home = HomeScreen(
-                bank_id=bank,
-                monochrome=appearance.monochrome,
-                classic=appearance.classic,
-                is_upi123_ready=bool(results and results.upi123Enabled),
-                is_ussd_ready=bool(results and results.ussdEnabled),
-                on_settings=self._open_settings,
-                on_history=self._open_history,
-                on_retry=self.container.transaction_view_model.refresh,
-                on_transaction=self._open_transaction,
-                on_scan=self._open_scanner,
-                on_pay_contact=self._open_pay_contact,
-            )
+        self._home_screen = home_screen
+        self.home = self._make_home(appearance, results, bank)
         home_screen.add_widget(self.home)
         sm.add_widget(home_screen)
         self.sm = sm
         self._detail_overlay = None
+
+        # Feature 12: onboarding routing. AppearanceSetupActivity runs when
+        # the one-time introduction is unfinished; SetupActivity runs until
+        # setup_completed; otherwise MainActivity (home).
+        self._setup_helper = setup_logic.SetupHelper(
+            self.container.prefs, self.container.test_results,
+            show_toast=self._show_toast,
+            navigate_to_test_configuration=self._open_setup_required)
+        from paynet.ui.setup import SetupScreen
+        self.setup_screen = Screen(name="setup")
+        self.setup_screen.add_widget(SetupScreen(
+            self._setup_helper, self.container.prefs))
+        sm.add_widget(self.setup_screen)
+
+        from paynet.ui.appearance import AppearanceScreen
+        self.appearance_screen = Screen(name="appearance")
+        self.appearance_screen.add_widget(AppearanceScreen(
+            self.container.prefs,
+            on_open_home=self._finish_appearance,
+            on_review_setup=lambda: setattr(sm, "current", "setup")))
+        sm.add_widget(self.appearance_screen)
+
+        if onboarding.needs_appearance(self.container.prefs):
+            sm.current = "appearance"
+        elif not self.container.prefs.get("setup_completed", False):
+            sm.current = "setup"
 
         # Feature 9: TransactionHistoryActivity as the second screen.
         vm0 = self.container.transaction_view_model
@@ -149,6 +149,49 @@ class PayNetApp(App):
         self._root = FloatLayout()
         self._root.add_widget(sm)
         return self._root
+
+    def _make_home(self, appearance, results, bank):
+        # HomeDashboard.kt: the legacy dashboard only when the appearance is
+        # classic and not monochrome.
+        if appearance.classic and not appearance.monochrome:
+            return LegacyHomeScreen(
+                bank_name=home_bank_name(bank),
+                monochrome=False,
+                is_upi123_ready=bool(results and results.upi123Enabled),
+                is_ussd_ready=bool(results and results.ussdEnabled),
+                on_settings=self._open_settings,
+                on_history=self._open_history,
+                on_retry=self.container.transaction_view_model.refresh,
+                on_transaction=self._open_transaction,
+                on_scan=self._open_scanner,
+                on_pay_contact=self._open_pay_contact,
+            )
+        return HomeScreen(
+            bank_id=bank,
+            monochrome=appearance.monochrome,
+            classic=appearance.classic,
+            is_upi123_ready=bool(results and results.upi123Enabled),
+            is_ussd_ready=bool(results and results.ussdEnabled),
+            on_settings=self._open_settings,
+            on_history=self._open_history,
+            on_retry=self.container.transaction_view_model.refresh,
+            on_transaction=self._open_transaction,
+            on_scan=self._open_scanner,
+            on_pay_contact=self._open_pay_contact,
+        )
+
+    def _finish_appearance(self):
+        """AppearanceSetupActivity.openHome: rebuild home with the chosen
+        appearance and leave the introduction on the back stack."""
+        container = self.container
+        appearance = HomeAppearance.read(container.prefs)
+        results = container.test_results.get_test_results()
+        bank = container.prefs.get("selected_bank", "hdfc")
+        self._home_screen.remove_widget(self.home)
+        self.home = self._make_home(appearance, results, bank)
+        self._home_screen.add_widget(self.home)
+        self._refresh_home()
+        self.sm.current = "home"
 
     def _refresh_home(self):
         # Port of rememberMainScreenState's ON_RESUME block: re-read the
@@ -194,6 +237,16 @@ class PayNetApp(App):
         self.container.transaction_view_model.select_transaction(payment.id)
 
     def _open_scanner(self):
+        # MainActivityHelper.startQRScanning gate, then feature 11's screen.
+        # The phone-permission request leg is device-only (feature 17).
+        blocked = setup_logic.get_scan_to_pay_blocked_message(self.container.prefs)
+        if blocked is not None:
+            self._show_toast(blocked)
+            return
+        results = self.container.test_results.get_test_results()
+        if not (results and results.ussdEnabled):
+            self._open_setup_required()
+            return
         # Feature 11: QRScannerActivity as its own screen. Camera, torch,
         # photo picker and the USSD dial are device-only (feature 17);
         # the payment flow itself runs fully.
@@ -202,6 +255,8 @@ class PayNetApp(App):
             self.container.payment_session_manager,
             detector=self.container.transaction_detector,
             show_toast=self._show_toast,
+            blocked_message=lambda: setup_logic.get_scan_to_pay_blocked_message(
+                self.container.prefs),
             on_close=self._close_scanner,
             name="qr_scanner")
         self.sm.add_widget(self._scanner)
@@ -273,6 +328,10 @@ class PayNetApp(App):
         return self._transfer_initiator
 
     def _open_setup_required(self):
-        # Kotlin: navigateToTestConfiguration(). The setup/onboarding
-        # screen is feature 12; until then this is a deliberate no-op.
-        pass
+        # Kotlin: navigateToTestConfiguration(). DEVIATION: the
+        # TestConfigurationActivity screen is feature 16; until then setup
+        # completion and readiness gates route home instead.
+        if not self.container.prefs.get("setup_completed", False):
+            self.sm.current = "setup"
+        else:
+            self.sm.current = "home"
