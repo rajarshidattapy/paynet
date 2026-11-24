@@ -219,6 +219,12 @@ class TransactionViewModel:
             log.exception("Failed to clear transactions")
             self.error.set(ERROR_CLEAR_TRANSACTIONS)
 
+    def retry_history(self) -> None:
+        """The error state's Retry action: the Kotlin screen calls
+        loadHistory() again; the port must drop the load-once guard first."""
+        self._history_loaded = False
+        self.load_history()
+
     def clear_error(self) -> None:
         self.error.set(None)
 

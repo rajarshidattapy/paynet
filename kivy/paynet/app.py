@@ -23,6 +23,7 @@ from paynet import theme  # noqa: F401  (imported for screens)
 from paynet.db.database import Database
 from paynet.db.settings import PrefsStore, TestResultsManager
 from paynet.repository import TransactionRepository
+from paynet.ui.history import HistoryScreen, TransactionDetailView
 from paynet.ui.home import HomeScreen, home_bank_name
 from paynet.ui.home_appearance import HomeAppearance
 from paynet.ui.home_legacy import LegacyHomeScreen
@@ -91,6 +92,26 @@ class PayNetApp(App):
             )
         home_screen.add_widget(self.home)
         sm.add_widget(home_screen)
+        self.sm = sm
+        self._detail_overlay = None
+
+        # Feature 9: TransactionHistoryActivity as the second screen.
+        vm0 = self.container.transaction_view_model
+        self.history = HistoryScreen(
+            vm0,
+            on_back=lambda: setattr(sm, "current", "home"),
+            on_delete=lambda tx: vm0.delete_transaction(tx),
+        )
+        history_screen = Screen(name="history")
+        history_screen.add_widget(self.history)
+        history_screen.bind(on_enter=lambda *_: vm0.load_history())
+        sm.add_widget(history_screen)
+
+        # MainDialogs: the selected transaction's receipt opens over
+        # whichever screen is current.
+        vm0.selected_transaction.subscribe(
+            lambda tx: Clock.schedule_once(lambda *_: self._show_selected(tx), 0)
+        )
 
         vm = self.container.transaction_view_model
         vm.recent_transactions.subscribe(
@@ -129,7 +150,23 @@ class PayNetApp(App):
         pass
 
     def _open_history(self):
-        pass
+        self.sm.current = "history"
+
+    def _show_selected(self, transaction):
+        if self._detail_overlay is not None:
+            self.sm.remove_widget(self._detail_overlay)
+            self._detail_overlay = None
+        if transaction is not None:
+            vm = self.container.transaction_view_model
+            self._detail_overlay = TransactionDetailView(
+                transaction,
+                on_dismiss=vm.clear_selected_transaction,
+                on_delete=lambda tx: (vm.delete_transaction(tx),
+                                      vm.clear_selected_transaction()),
+            )
+            self._detail_overlay.size = self.sm.size
+            self._detail_overlay.pos = self.sm.pos
+            self.sm.add_widget(self._detail_overlay)
 
     def _open_transaction(self, payment):
         self.container.transaction_view_model.select_transaction(payment.id)

@@ -179,6 +179,39 @@ class Glyph(Widget):
                 Line(points=[x + w * .68, y + h * .56, x + w * .68, y + h * .72], width=lw)
                 Line(points=[x + w * .32, y + h * .72, x + w * .5, y + h * .9,
                              x + w * .68, y + h * .72], width=lw)
+            elif self._kind == "back":
+                Line(points=[x + w * .78, y + h * .5, x + w * .25, y + h * .5], width=lw, cap="round")
+                Line(points=[x + w * .25, y + h * .5, x + w * .5, y + h * .75], width=lw, cap="round")
+                Line(points=[x + w * .25, y + h * .5, x + w * .5, y + h * .25], width=lw, cap="round")
+            elif self._kind == "search":
+                Line(circle=(x + w * .43, y + h * .57, w * .28), width=lw)
+                Line(points=[x + w * .63, y + h * .37, x + w * .85, y + h * .15], width=lw, cap="round")
+            elif self._kind == "receipt":
+                Line(rounded_rectangle=(x + w * .2, y + h * .1, w * .6, h * .8, w * .08), width=lw)
+                Line(points=[x + w * .33, y + h * .64, x + w * .67, y + h * .64], width=lw)
+                Line(points=[x + w * .33, y + h * .46, x + w * .67, y + h * .46], width=lw)
+                Line(points=[x + w * .33, y + h * .28, x + w * .55, y + h * .28], width=lw)
+            elif self._kind == "phone":
+                # Handset: earpiece, arc, mouthpiece.
+                Line(circle=(x + w * .5, y + h * .42, w * .3, 200, 340), width=lw)
+                Ellipse(pos=(x + w * .12, y + h * .08), size=(w * .2, h * .2))
+                Ellipse(pos=(x + w * .68, y + h * .08), size=(w * .2, h * .2))
+            elif self._kind == "at":
+                Line(circle=(x + w * .5, y + h * .5, w * .36), width=lw)
+                Line(circle=(x + w * .5, y + h * .5, w * .16), width=lw)
+                Line(points=[x + w * .66, y + h * .5, x + w * .78, y + h * .3], width=lw, cap="round")
+            elif self._kind == "tag":
+                Line(points=[x + w * .38, y + h * .15, x + w * .38, y + h * .85], width=lw)
+                Line(points=[x + w * .62, y + h * .15, x + w * .62, y + h * .85], width=lw)
+                Line(points=[x + w * .15, y + h * .38, x + w * .85, y + h * .38], width=lw)
+                Line(points=[x + w * .15, y + h * .62, x + w * .85, y + h * .62], width=lw)
+            elif self._kind == "copy":
+                Line(rounded_rectangle=(x + w * .3, y + h * .4, w * .55, h * .5, w * .08), width=lw)
+                Line(rounded_rectangle=(x + w * .15, y + h * .1, w * .55, h * .5, w * .08), width=lw)
+            elif self._kind == "payments":
+                # Banknote: body plus centre seal.
+                Line(rounded_rectangle=(x + w * .1, y + h * .24, w * .8, h * .52, w * .08), width=lw)
+                Line(circle=(x + w * .5, y + h * .5, w * .13), width=lw)
 
 
 class ActionTile(ButtonBehavior, RoundedBox):

@@ -11,4 +11,12 @@ def format_date(timestamp_ms: int) -> str:
 
 
 def format_time(timestamp_ms: int) -> str:
-    return time.strftime("%I:%M %p", time.localtime(timestamp_ms / 1000)).lstrip("0")
+    # TransactionHistoryActivity.formatTime: SimpleDateFormat "hh:mm a".
+    return time.strftime("%I:%M %p", time.localtime(timestamp_ms / 1000))
+
+
+def format_full_date(timestamp_ms: int) -> str:
+    # TransactionDetailDialog.formatFullDate: "dd MMM yyyy · h:mm a" (h is
+    # unpadded, unlike the history row's "hh").
+    t = time.localtime(timestamp_ms / 1000)
+    return time.strftime("%d %b %Y · ", t) + time.strftime("%I:%M %p", t).lstrip("0")

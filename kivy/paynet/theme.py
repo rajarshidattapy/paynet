@@ -32,6 +32,10 @@ DISABLED_GRAY = _rgba(0xFF4E4A5F)     # disabled content / faint hint
 TEXT_GRAY = _rgba(0xFF6B6780)         # placeholder / hint
 TEXT_LIGHT_GRAY = _rgba(0xFF8E8AA3)   # captions, labels, timestamps
 TEXT_PALE = _rgba(0xFFC9C6D6)         # long-form body on dark dialogs
+
+# ---- Onboarding / receipt dialog palette (ui/theme/OnboardingColors.kt) ----
+ONBOARDING_SURFACE = _rgba(0xFF1C1C1E)
+ONBOARDING_SECONDARY = _rgba(0xFF98989D)
 TEXT_WHITE = _rgba(0xFFFFFFFF)
 WELCOME_TEXT = _rgba(0xFFF4F3FA)
 
