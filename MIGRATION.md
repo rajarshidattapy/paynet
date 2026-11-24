@@ -104,7 +104,7 @@ Feature inventory (Kotlin source → planned Python module):
 | 3 | SMS transaction parser | ✅ Done | pytest (full bank corpus + regex blocks, 1:1) | Desktop-verified; broadcast-receiver wiring is feature 6 |
 | 4 | Persistence: transactions, settings | ✅ Done | pytest (DAO guards, mapping, settings) | Flow -> sync queries, SharedPreferences -> JSON prefs; SQLCipher parity pending (see Parity risks) |
 | 5 | Payment session state machine | ✅ Done | pytest (27 session tests incl. both real-thread race tests, 1:1) | Coroutines -> synchronous store writes (join invariant satisfied by construction); watchdog = threading.Timer, manual scheduler in tests; StateFlow -> subscribe/listeners |
-| 6 | SMS ingestion pipeline + dedup + operation window | ⬜ Pending | | |
+| 6 | SMS ingestion pipeline + dedup + operation window | ✅ Done | pytest (9 pipeline tests 1:1 + detector window/dedup/concurrency + receiver guards + notifier mapping) | Android bindings (PDU parsing, goAsync, LocalBroadcastManager, NotificationManager) are injected callables; pyjnius wiring is feature 17, unverified from desktop |
 | 7 | Telephony: call placement, call-state coordination, audio | ◐ Partial | pytest (8 coordinator tests, 1:1) | CallStateCoordinator core ported with pluggable TelephonyAdapter; pyjnius adapter + CallManager pending |
 | 8–17 | Remaining features | ⬜ Pending | | |
 
