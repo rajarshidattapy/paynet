@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 from typing import Callable, List, Optional
 
-from kivy.graphics import Color, Ellipse, Line, Rectangle, RoundedRectangle
+from kivy.graphics import Color, Ellipse, Line, Rectangle, RoundedRectangle, Triangle
 from kivy.graphics.texture import Texture
 from kivy.metrics import dp
 from kivy.uix.behaviors import ButtonBehavior
@@ -221,6 +221,46 @@ class Glyph(Widget):
                 s = w * .3
                 for cx, cy in ((.16, .54), (.54, .54), (.16, .16), (.54, .16)):
                     Line(rounded_rectangle=(x + w * cx, y + h * cy, s, s, w * .07), width=lw * .8)
+            elif self._kind == "chevron_right":
+                Line(points=[x + w * .38, y + h * .75, x + w * .64, y + h * .5,
+                             x + w * .38, y + h * .25], width=lw, cap="round", joint="round")
+            elif self._kind == "swap":
+                # SwapHoriz stand-in: two opposing arrows (filled shafts+heads).
+                Rectangle(pos=(x + w * .2, y + h * .63), size=(w * .48, h * .09))
+                Triangle(points=[x + w * .66, y + h * .79, x + w * .66, y + h * .47,
+                                 x + w * .86, y + h * .675])
+                Rectangle(pos=(x + w * .32, y + h * .28), size=(w * .48, h * .09))
+                Triangle(points=[x + w * .34, y + h * .44, x + w * .34, y + h * .12,
+                                 x + w * .14, y + h * .325])
+            elif self._kind == "info":
+                Line(circle=(x + w * .5, y + h * .5, w * .36), width=lw)
+                Ellipse(pos=(x + w * .46, y + h * .64), size=(w * .08, w * .08))
+                Rectangle(pos=(x + w * .455, y + h * .26), size=(w * .09, h * .26))
+            elif self._kind == "trash":
+                Rectangle(pos=(x + w * .38, y + h * .82), size=(w * .24, h * .07))
+                Rectangle(pos=(x + w * .22, y + h * .72), size=(w * .56, h * .07))
+                Line(rounded_rectangle=(x + w * .28, y + h * .12, w * .44, h * .56, w * .06), width=lw)
+            elif self._kind == "shield":
+                Line(points=[x + w * .5, y + h * .9, x + w * .82, y + h * .74,
+                             x + w * .82, y + h * .38, x + w * .5, y + h * .1,
+                             x + w * .18, y + h * .38, x + w * .18, y + h * .74,
+                             x + w * .5, y + h * .9], width=lw, joint="round")
+            elif self._kind == "camera":
+                Line(rounded_rectangle=(x + w * .14, y + h * .2, w * .72, h * .54, w * .08), width=lw)
+                Line(circle=(x + w * .5, y + h * .47, w * .18), width=lw)
+                Rectangle(pos=(x + w * .34, y + h * .74), size=(w * .32, h * .1))
+            elif self._kind == "palette":
+                Line(circle=(x + w * .5, y + h * .5, w * .36), width=lw)
+                for cx, cy in ((.36, .62), (.5, .68), (.64, .62)):
+                    Ellipse(pos=(x + w * cx, y + h * cy), size=(w * .09, w * .09))
+                Ellipse(pos=(x + w * .4, y + h * .28), size=(w * .14, h * .14))
+            elif self._kind == "open_in_new":
+                Line(points=[x + w * .42, y + h * .82, x + w * .18, y + h * .82,
+                             x + w * .18, y + h * .18, x + w * .82, y + h * .18,
+                             x + w * .82, y + h * .42], width=lw, cap="round", joint="round")
+                Rectangle(pos=(x + w * .5, y + h * .6), size=(w * .07, h * .07))
+                Triangle(points=[x + w * .56, y + h * .84, x + w * .56, y + h * .58,
+                                 x + w * .84, y + h * .84])
             elif self._kind == "phone":
                 # Handset: earpiece, arc, mouthpiece.
                 Line(circle=(x + w * .5, y + h * .42, w * .3, 200, 340), width=lw)

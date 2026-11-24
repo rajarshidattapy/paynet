@@ -26,7 +26,7 @@ from kivy.uix.screenmanager import Screen, ScreenManager
 from paynet import onboarding, theme
 from paynet import setup as setup_logic
 from paynet.db.database import Database
-from paynet.db.settings import PrefsStore, TestResultsManager
+from paynet.db.settings import PrefsStore, SettingsRepository, TestResultsManager
 from paynet.payment.initiate import TransferInitiator
 from paynet.payment.session import PaymentSessionManager
 from paynet.repository import TransactionRepository
@@ -50,6 +50,7 @@ class AppContainer:
         self.data_dir = data_dir
         self.prefs = PrefsStore(data_dir, "PayNetPrefs")
         self.test_results = TestResultsManager(data_dir)
+        self.settings = SettingsRepository(data_dir)
         self.database = Database(os.path.join(data_dir, "paynet.db"))
         self.repository = TransactionRepository(self.database)
         self.main_view_model = MainViewModel()
@@ -107,6 +108,20 @@ class PayNetApp(App):
             on_open_home=self._finish_appearance,
             on_review_setup=lambda: setattr(sm, "current", "setup")))
         sm.add_widget(self.appearance_screen)
+
+        # Feature 13: SettingsActivity as its own screen, refreshed on entry.
+        from paynet.ui.settings import SettingsScreen
+        self._settings_widget = SettingsScreen(
+            self.container.prefs, self.container.settings,
+            self.container.test_results, self.container.repository,
+            on_back=self._leave_settings,
+            on_open_setup=self._reopen_setup,
+            on_appearance_changed=self._apply_appearance_to_home)
+        self.settings_screen = Screen(name="settings")
+        self.settings_screen.add_widget(self._settings_widget)
+        self.settings_screen.bind(
+            on_enter=lambda *_: self._settings_widget.refresh())
+        sm.add_widget(self.settings_screen)
 
         if onboarding.needs_appearance(self.container.prefs):
             sm.current = "appearance"
@@ -183,6 +198,13 @@ class PayNetApp(App):
     def _finish_appearance(self):
         """AppearanceSetupActivity.openHome: rebuild home with the chosen
         appearance and leave the introduction on the back stack."""
+        self._apply_appearance_to_home()
+        self.sm.current = "home"
+
+    def _apply_appearance_to_home(self):
+        """Re-read appearance + bank prefs and rebuild the home screen
+        (rememberMainScreenState's ON_RESUME re-read, applied to the
+        whole widget because the bank/appearance are baked in)."""
         container = self.container
         appearance = HomeAppearance.read(container.prefs)
         results = container.test_results.get_test_results()
@@ -191,7 +213,19 @@ class PayNetApp(App):
         self.home = self._make_home(appearance, results, bank)
         self._home_screen.add_widget(self.home)
         self._refresh_home()
+
+    def _leave_settings(self):
+        self._apply_appearance_to_home()
         self.sm.current = "home"
+
+    def _reopen_setup(self):
+        """Clear-data lands on a fresh setup screen (the saved selections
+        were just wiped, so the old widget's state is stale)."""
+        from paynet.ui.setup import SetupScreen
+        self.setup_screen.clear_widgets()
+        self.setup_screen.add_widget(SetupScreen(
+            self._setup_helper, self.container.prefs))
+        self.sm.current = "setup"
 
     def _refresh_home(self):
         # Port of rememberMainScreenState's ON_RESUME block: re-read the
@@ -212,7 +246,7 @@ class PayNetApp(App):
     # Navigation targets arrive with their own features (MIGRATION.md);
     # until then these are deliberate no-ops.
     def _open_settings(self):
-        pass
+        self.sm.current = "settings"
 
     def _open_history(self):
         self.sm.current = "history"
