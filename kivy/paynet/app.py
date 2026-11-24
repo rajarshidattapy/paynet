@@ -17,16 +17,24 @@ os.environ.setdefault("KIVY_NO_ARGS", "1")
 
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.graphics import Color as KvColor, RoundedRectangle
+from kivy.metrics import dp
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 
-from paynet import theme  # noqa: F401  (imported for screens)
+from paynet import theme
 from paynet.db.database import Database
 from paynet.db.settings import PrefsStore, TestResultsManager
+from paynet.payment.initiate import TransferInitiator
+from paynet.payment.session import PaymentSessionManager
 from paynet.repository import TransactionRepository
+from paynet.telephony.coordinator import CallStateCoordinator
 from paynet.ui.history import HistoryScreen, TransactionDetailView
 from paynet.ui.home import HomeScreen, home_bank_name
 from paynet.ui.home_appearance import HomeAppearance
 from paynet.ui.home_legacy import LegacyHomeScreen
+from paynet.ui.pay_contact import PayContactDialog
 from paynet.viewmodels import MainViewModel, TransactionViewModel
 
 
@@ -44,6 +52,10 @@ class AppContainer:
         self.repository = TransactionRepository(self.database)
         self.main_view_model = MainViewModel()
         self.transaction_view_model = TransactionViewModel(self.repository)
+        # One telephony listener for the whole app; no adapter off-device.
+        self.call_coordinator = CallStateCoordinator(telephony=None)
+        self.payment_session_manager = PaymentSessionManager(
+            store=self.repository, coordinator=self.call_coordinator)
 
 
 class PayNetApp(App):
@@ -126,7 +138,11 @@ class PayNetApp(App):
         )
         home_screen.bind(on_enter=lambda *_: self._refresh_home())
         Clock.schedule_once(lambda *_: self._refresh_home(), 0)
-        return sm
+        # ScreenManager accepts only Screen children, so dialogs, toasts and
+        # receipt overlays layer onto a plain root above it.
+        self._root = FloatLayout()
+        self._root.add_widget(sm)
+        return self._root
 
     def _refresh_home(self):
         # Port of rememberMainScreenState's ON_RESUME block: re-read the
@@ -154,7 +170,7 @@ class PayNetApp(App):
 
     def _show_selected(self, transaction):
         if self._detail_overlay is not None:
-            self.sm.remove_widget(self._detail_overlay)
+            self._root.remove_widget(self._detail_overlay)
             self._detail_overlay = None
         if transaction is not None:
             vm = self.container.transaction_view_model
@@ -164,9 +180,9 @@ class PayNetApp(App):
                 on_delete=lambda tx: (vm.delete_transaction(tx),
                                       vm.clear_selected_transaction()),
             )
-            self._detail_overlay.size = self.sm.size
-            self._detail_overlay.pos = self.sm.pos
-            self.sm.add_widget(self._detail_overlay)
+            self._detail_overlay.size = self._root.size
+            self._detail_overlay.pos = self._root.pos
+            self._root.add_widget(self._detail_overlay)
 
     def _open_transaction(self, payment):
         self.container.transaction_view_model.select_transaction(payment.id)
@@ -174,5 +190,63 @@ class PayNetApp(App):
     def _open_scanner(self):
         pass
 
+    def _show_toast(self, message):
+        # Toast port: transient bottom bar, same shape as the history
+        # screen's snackbar.
+        if getattr(self, "_toast", None) is not None:
+            self._root.remove_widget(self._toast)
+        bar = FloatLayout(size_hint=(None, None), size=(dp(300), dp(44)))
+        with bar.canvas.before:
+            KvColor(rgba=theme.MEDIUM_GRAY)
+            bar._bg = RoundedRectangle(radius=[dp(12)])
+        bar.bind(pos=lambda w, _: setattr(w._bg, "pos", w.pos),
+                 size=lambda w, _: setattr(w._bg, "size", w.size))
+        bar.add_widget(Label(text=message, font_size="13sp",
+                             color=(1, 1, 1, 1)))
+        bar.center_x = self._root.center_x
+        bar.y = self._root.y + dp(24)
+        self._toast = bar
+        self._root.add_widget(bar)
+        Clock.schedule_once(self._dismiss_toast, 3)
+
+    def _dismiss_toast(self, *_):
+        if getattr(self, "_toast", None) is not None:
+            self._root.remove_widget(self._toast)
+            self._toast = None
+
     def _open_pay_contact(self):
+        if getattr(self, "_pay_contact", None) is not None:
+            return
+        vm = self.container.transaction_view_model
+        self._pay_contact = PayContactDialog(
+            on_dismiss=self._close_pay_contact,
+            on_confirm=self._confirm_pay_contact,
+            show_toast=self._show_toast)
+        self._pay_contact.size = self._root.size
+        self._pay_contact.pos = self._root.pos
+        self._root.add_widget(self._pay_contact)
+
+    def _close_pay_contact(self):
+        if getattr(self, "_pay_contact", None) is not None:
+            self._root.remove_widget(self._pay_contact)
+            self._pay_contact = None
+
+    def _confirm_pay_contact(self, phone, amount, name):
+        self._close_pay_contact()
+        self._initiator().initiate_transfer(phone, amount,
+                                            recipient_name=name)
+
+    def _initiator(self):
+        if getattr(self, "_transfer_initiator", None) is None:
+            self._transfer_initiator = TransferInitiator(
+                self.container.test_results,
+                self.container.payment_session_manager,
+                show_toast=self._show_toast,
+                on_setup_required=self._open_setup_required,
+            )
+        return self._transfer_initiator
+
+    def _open_setup_required(self):
+        # Kotlin: navigateToTestConfiguration(). The setup/onboarding
+        # screen is feature 12; until then this is a deliberate no-op.
         pass
