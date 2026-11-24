@@ -1,13 +1,13 @@
 version: 2
 updates:
-  - package-ecosystem: gradle
-    directory: /
+  - package-ecosystem: pip
+    directory: /kivy
     schedule:
       interval: weekly
     groups:
       # One PR for routine minor/patch bumps; majors stay individual PRs
       # so their release notes get read before merging.
-      gradle-minor-patch:
+      pip-minor-patch:
         update-types:
           - minor
           - patch

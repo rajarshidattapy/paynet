@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **PayNet is now a Python/Kivy app.** The app lives in `kivy/` (run with
+  `python main.py`, test with `python -m pytest tests -q`). The Kotlin/Jetpack
+  Compose app, its Gradle build and its Kotlin CI were removed; the last
+  commit containing them is `de292ba`. CI now runs a secret scan and the
+  pytest suite, and CodeQL analyses Python.
+
+### Known gaps
+- Android packaging (buildozer and pyjnius bindings) is not done yet, so
+  there is no installable Python build for a phone.
+- Payment history is stored in plain SQLite; SQLCipher at-rest encryption is
+  not yet carried over.
+
 ## 1.0.1 - 2026-10-03
 
 The first signed APK offered through GitHub Releases. The maintainer completed

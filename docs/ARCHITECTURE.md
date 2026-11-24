@@ -1,11 +1,29 @@
 # PayNet architecture
 
-PayNet is a single-module Android app that puts a smartphone UI on top of
-two offline UPI rails — `*99#` USSD and UPI 123Pay IVR — and confirms
-payment outcomes by reading the bank's confirmation SMS locally. There is no
-backend, no `INTERNET` permission, and no telemetry. This document is the
-map: how the pieces fit, where the load-bearing invariants live, and which
-known simplifications are deliberate.
+PayNet is a Python/Kivy app that puts a smartphone UI on top of two offline
+UPI rails — `*99#` USSD and UPI 123Pay IVR — and confirms payment outcomes
+by reading the bank's confirmation SMS locally. There is no backend and no
+telemetry. All code lives in [`kivy/`](../kivy): the `paynet` package, the
+entry point [`kivy/main.py`](../kivy/main.py), and the test suite in
+[`kivy/tests`](../kivy/tests). This document is the map: how the pieces fit,
+where the load-bearing invariants live, and which known simplifications and
+gaps are deliberate.
+
+The code is a feature-by-feature port of an earlier Kotlin/Jetpack Compose
+app (last present at commit `de292ba`). [MIGRATION.md](../MIGRATION.md) is
+the source of truth for what has been ported, what is verified, and what is
+not. Two gaps shape everything below:
+
+- **Android packaging is not done yet** (feature 17: buildozer, manifest,
+  pyjnius bindings). Every device-only surface — dialling, call-state
+  callbacks, SMS broadcast reception, notifications, camera/ZXing decode,
+  contacts, the overlay window, vibration, permission prompts — sits behind
+  an injected callable or a small protocol class. Off-device those are
+  `None` or stubs, so the desktop build never dials and never receives an
+  SMS. The logic around them is unit-tested; the bindings themselves are
+  **unverified**.
+- **At-rest encryption is not carried over.** The transaction database is
+  plain sqlite3 (see [Persistence](#persistence)).
 
 ## The one invariant that matters
 
@@ -19,46 +37,55 @@ app can report on, and it is never silently assumed either way.
 
 ## Composition root
 
-[`PayNetApplication`](../app/src/main/java/com/paynet/app/PayNetApplication.kt)
-owns a single [`AppContainer`](../app/src/main/java/com/paynet/app/di/AppContainer.kt)
-— the manual, framework-free composition root. It constructs and holds the
-process-scoped graph:
+[`AppContainer`](../kivy/paynet/app.py) is the manual, framework-free
+composition root, constructed once by `PayNetApp.build()` with Kivy's
+per-user data directory. It constructs and holds the process-scoped graph:
 
 ```
-AppContainer
-├── appScope: CoroutineScope           (SupervisorJob + Dispatchers.Default)
-├── settingsRepository
-├── callStateCoordinator               (the ONE telephony listener)
-└── paymentSessionManager              (the ONLY writer of payment state)
-        └── store = TransactionRepository (implements PaymentTransactionStore)
+AppContainer (kivy/paynet/app.py)
+├── prefs, settings, test_results      (JSON-file preferences, paynet/db/settings.py)
+├── database → repository              (sqlite3 Database → TransactionRepository)
+├── main_view_model, transaction_view_model
+├── call_coordinator                   (the ONE telephony listener; telephony=None off-device)
+├── payment_session_manager            (the ONLY writer of payment state)
+│       └── store = repository         (implements PaymentTransactionStore)
+├── transaction_detector               (the SMS operation window + dedup)
+└── install_reporter                   (opt-in install count; see SECURITY.md)
 ```
 
-Receivers and services reach it via `PayNetApplication.from(context)`.
-DI is hand-wired on purpose: the graph is small, and for a payments app,
-construction a reader can follow by eye beats annotation-generated
-indirection. `TransactionRepository`, `AppDatabase`, and `TransactionDetector`
-remain thread-safe, application-context-keyed `getInstance()` singletons;
-the container references them rather than duplicating their lifecycle.
+Screens and helpers reach these through the app instance. DI is hand-wired
+on purpose: the graph is small, and for a payments app, construction a
+reader can follow by eye beats framework indirection.
+
+Not everything that has been ported is wired into the container yet.
+`SimpleSMSReceiver`, the ingestion pipeline, `PaymentWindowObserver`,
+`CallOverlayService` and `PaymentResultScreen` exist and are tested, but
+nothing in `AppContainer` constructs them today — their entry points are
+platform events (an SMS broadcast, a call going off-hook) that only exist
+once the Android bindings land.
 
 ## Payment lifecycle state machine
 
-[`PaymentSessionManager`](../app/src/main/java/com/paynet/app/payment/PaymentSessionManager.kt)
-is the single writer of payment state and the most carefully-built part of
-the app. It takes its dependencies as interfaces (`PaymentTransactionStore`,
-`CallStateSource`) plus an injectable clock, which is what makes it fully
-unit-testable without a device (see
-[`PaymentSessionManagerTest`](../app/src/test/java/com/paynet/app/payment/PaymentSessionManagerTest.kt)).
+[`PaymentSessionManager`](../kivy/paynet/payment/session.py) is the single
+writer of payment state and the most carefully-built part of the app. It
+takes its dependencies as protocols (`PaymentTransactionStore`, plus a call
+coordinator exposing `acquire`/`release`/`add_session_listener`), an
+injectable clock, and an injectable watchdog factory, which is what makes it
+fully unit-testable without a device (see
+[`tests/test_payment_session.py`](../kivy/tests/test_payment_session.py)).
+States are the dataclasses in
+[`paynet/payment/state.py`](../kivy/paynet/payment/state.py).
 
 ```
-begin(phone, amount)          [QR: begin("", amount?, upiId, source=QR)]
+begin(phone, amount)          [QR: begin("", amount, upi_id, source=QR)]
    │  writes a PENDING row BEFORE anything is dialed, so a process death
    │  mid-call still leaves a record of the attempt
    ▼
-Initiating ──OFFHOOK──▶ InProgress ──call ends──▶ WaitingForVerification
+Initiating ──Started──▶ InProgress ──Ended──▶ WaitingForVerification
    │                        │  (short call <5s ⇒ Cancelled, never SUCCESS)     │
    │                        │                                                   │
    └── dial failed /        └───────────── confirming bank SMS ────────────────┤
-       call never started              (onSmsConfirmed)                         │
+       call never started              (on_sms_confirmed)                       │
               │                                                                 ▼
               ▼                              ┌── amount matches ⇒ Success ──────┤
            Cancelled                         ├── amount mismatch ⇒ dropped,     │
@@ -74,156 +101,212 @@ Initiating ──OFFHOOK──▶ InProgress ──call ends──▶ WaitingFor
                     no row to adopt it is saved as a standalone transaction.
 ```
 
-Every terminal transition `join()`s the pending-insert coroutine first, so
-the PENDING row always exists before it's updated. Stale PENDING rows left by
-a killed process are discarded lazily (`reconcileStalePending` on app start).
-If the process died mid-payment and the confirming SMS arrives after restart,
-the ingestion pipeline *reattaches* it: the session txnId is persisted in the
-operation window at `begin()`, and a no-live-session confirmation updates that
-still-PENDING row instead of inserting a duplicate. Adoption is guarded to
-PENDING rows in SQL, so a confirmation can never rewrite a row the user
-already cancelled. The QR flow runs through the same session lifecycle — it
-used to bypass it entirely. The `PaymentState` sealed hierarchy carries
-exactly the states the machine emits — dead QR/retry variants were removed so
-the type reflects reality.
+`Started`/`Ended` are the `CallSessionEvent`s emitted by the call-state
+coordinator (OFFHOOK, then back to idle). A bank SMS that reports the
+payment as needing review moves the session to `NeedsReview` instead of
+`Success`, and an incoming CREDIT never confirms a session (a session is
+always an outgoing DEBIT).
 
-## SMS ingestion — two pipelines, one parser
+The Kotlin original ran its writes as fire-and-forget coroutines and had
+every terminal transition join the pending-insert job first. The port
+writes **synchronously**: `begin()` does not return until the PENDING row
+exists, so a confirmation can never beat the insert by construction. What
+carries over exactly is *claim first, write second*: the terminal state is
+claimed inside one `threading.RLock`, and only the caller that claimed it
+writes to the store, so a cancel landing at the same instant as the bank's
+SMS can never leave history contradicting the screen. The verification
+deadline is a `threading.Timer`; tests inject a manual watchdog.
+
+A new `begin()` supersedes any session still in flight rather than being
+refused, discarding the superseded PENDING row. Stale PENDING rows left by
+a killed process are discarded by `delete_stale_pending` at the start of
+every `begin()`; `reconcile_stale_pending()` exists for an app-start sweep
+but is not yet called from `AppContainer`. If the process died mid-payment
+and the confirming SMS arrives after restart, the ingestion pipeline
+*reattaches* it: the session txn id is stored in the operation window by
+`TransactionDetector.start_operation(session_txn_id=…)`, and a
+no-live-session confirmation updates that still-PENDING row instead of
+inserting a duplicate. Adoption is guarded to PENDING rows in SQL
+(`Database.confirm_transaction`), so a confirmation can never rewrite a row
+the user already cancelled. The QR flow
+([`QRScannerController`](../kivy/paynet/qr/scanner.py)) runs through the
+same session lifecycle and opens the operation window itself; the
+pay-contact flow ([`TransferInitiator`](../kivy/paynet/payment/initiate.py))
+opens the session, but its operation-window start and the IVR call are
+device-only and not wired yet.
+
+## SMS ingestion — one path, one parser
 
 The confirmation SMS is money-outcome truth, so its handling is the second
 most careful area.
 
 ```
                  ┌─────────────────────────────┐
-  bank SMS ─────▶│ SimpleSMSReceiver           │  priority-999 broadcast
-                 │ (RECEIVE_SMS)               │  receiver; goAsync + 8s cap
+  bank SMS ─────▶│ SimpleSMSReceiver           │  handle_sms(sender, body)
+                 │ (RECEIVE_SMS)               │  platform binding: feature 17
                  └──────────────┬──────────────┘
                                 │
-                 shouldProcessSMS() + tryClaimSms()
+                 should_process_sms() + try_claim_sms()
                                 │
                                 ▼
-                        SmsTransactionParser.parse()   ← PURE, Context-free, tested
-                                            │
-                                SmsIngestionPipeline.ingest()
+                        pipeline.ingest()
+                                │
+                  TransactionDetector.process_sms()
+                                │
+                        parser.parse()   ← PURE, platform-free, tested
                                             │
                      ┌──────────────────────┴───────────────────────┐
                      ▼                                               ▼
-          active session? update its row              no session (QR/legacy)?
-          via PaymentSessionManager.onSmsConfirmed     insert a fresh row
+          active session? update its row              no session (QR/process died)?
+          via PaymentSessionManager.on_sms_confirmed   adopt the window's PENDING row,
+                                                       else insert a fresh row
                      └──────────────────┬──────────────────────────┘
                                         ▼
-                            launch PaymentResultActivity
+                  notifier(result), then open_result(result)
 ```
 
-- [`SmsTransactionParser`](../app/src/main/java/com/paynet/app/payment/sms/SmsTransactionParser.kt)
-  holds all the bank-SMS matching logic — pure, Context-free, and tested
-  against a per-bank corpus. [`TransactionDetector`](../app/src/main/java/com/paynet/app/helpers/TransactionDetector.kt)
-  is the stateful shell around it: the SharedPreferences-backed *operation
-  window* (only SMS arriving while a payment is in flight are eligible;
-  sized to the verification deadline plus a grace margin, so a slow bank SMS
-  is never dropped here while the session still awaits it) and the dedup
-  that stops a redelivered SMS broadcast from double-processing one message.
-- **Dedup** is `tryClaimSms` (a body-only normalized-key claim) plus
-  `@Synchronized processSMS` re-checking the operation window under lock.
-- [`SmsIngestionPipeline`](../app/src/main/java/com/paynet/app/receivers/SmsIngestionPipeline.kt)
-  is the single path from a claimed SMS to an outcome — parsing, session
-  confirmation or orphaned-row reattach, persistence, broadcasts, the result
-  notification, and the result-screen launch. The debug SMS-injection tool
-  drives the same pipeline, so tests exercise the exact production path (see
+- [`paynet/sms/parser.py`](../kivy/paynet/sms/parser.py) holds all the
+  bank-SMS matching logic — pure, platform-free (it takes a clock and a
+  random-suffix provider as parameters), and tested against a per-bank
+  corpus. [`TransactionDetector`](../kivy/paynet/sms/detector.py) is the
+  stateful shell around it: the prefs-backed *operation window* (only SMS
+  arriving while a payment is in flight are eligible; sized to the
+  verification deadline plus a 30-second grace margin, so a slow bank SMS is
+  never dropped here while the session still awaits it) and the dedup that
+  stops a redelivered SMS broadcast from double-processing one message.
+- **Dedup** is `try_claim_sms` (a body-only normalized-key claim, held for
+  60 seconds) plus `process_sms` re-checking the operation window under the
+  detector's lock.
+- [`paynet/sms/pipeline.py`](../kivy/paynet/sms/pipeline.py) is the single
+  path from a claimed SMS to an outcome — parsing, session confirmation or
+  orphaned-row reattach, persistence, the published events, the result
+  notification, and the result-screen launch. Its Android collaborators
+  (broadcasts, the notification post, the result-screen launch) are injected
+  callables, so tests drive the exact production function (see
   [TESTING.md](TESTING.md)).
-- There used to be a second ingestion path, a `NotificationListenerService`
-  fallback for when `RECEIVE_SMS` was denied. It was removed: the setting
-  that would have enabled it was never wired to anything in the UI, so it
-  could never actually run, while still sitting in the manifest as an
-  exported `BIND_NOTIFICATION_LISTENER_SERVICE` component. `RECEIVE_SMS` is
-  the only SMS ingestion path now.
+- [`SimpleSMSReceiver`](../kivy/paynet/sms/receiver.py) ports only the guard
+  logic (blank body, no open window, already claimed). Assembling a message
+  from its PDUs and keeping the process alive while it is handled are the
+  Android `BroadcastReceiver` binding, which is feature 17.
+- The Kotlin app once had a second ingestion path, a
+  `NotificationListenerService` fallback; it was removed before the port as
+  dead code and has no Python counterpart. `RECEIVE_SMS` is the only planned
+  SMS ingestion path.
 
 ## Telephony and the call overlay
 
-[`CallStateCoordinator`](../app/src/main/java/com/paynet/app/telephony/CallStateCoordinator.kt)
-is the single app-wide call-state listener; `PaymentSessionManager` consumes
-its events. [`CallManager`](../app/src/main/java/com/paynet/app/managers/CallManager.kt)
-places the actual `ACTION_CALL` dial (the DTMF 123Pay string is built and
-validated by the pure, tested
-[`Upi123CallStringBuilder`](../app/src/main/java/com/paynet/app/payment/Upi123CallStringBuilder.kt))
-and manages call audio.
-[`CallOverlayService`](../app/src/main/java/com/paynet/app/services/CallOverlayService.kt)
-draws a `TYPE_APPLICATION_OVERLAY` window during the call so the user has a UI
-anchor, and mirrors `PaymentState` into result dialogs. Its overlay watchdog
-and the user "End call" path notify the session **before** any best-effort
-UI/audio cleanup, and can't be skipped by an exception in that cleanup.
+[`CallStateCoordinator`](../kivy/paynet/telephony/coordinator.py) is the
+single app-wide call-state listener; `PaymentSessionManager` consumes its
+session events. It talks to the device through a `TelephonyAdapter`
+protocol — `None` in `AppContainer` today, so off-device it only moves when
+driven directly (which is how the tests drive it).
+[`CallManager`](../kivy/paynet/telephony/call_manager.py) places the actual
+call and manages call audio behind a `PhonePlatform` protocol; the DTMF
+123Pay string is built and validated by the pure, tested
+[`call_string.build()`](../kivy/paynet/payment/call_string.py).
+[`CallOverlayService`](../kivy/paynet/overlay/service.py) drives the
+in-call guidance UI ([`CallOverlayView`](../kivy/paynet/overlay/view.py))
+and mirrors `PaymentState` into result dialogs. Its watchdog and the user
+"End call" path notify the session **before** any best-effort UI/audio
+cleanup, so an exception in that cleanup can't skip it. On Android the
+overlay was a `TYPE_APPLICATION_OVERLAY` window; the port renders it through
+an injected overlay host, and drawing it over the dialer from a Python
+service is listed as the hardest open parity risk in MIGRATION.md.
 
 ## UI
 
-Screens are Jetpack Compose. `MainActivity`, `SettingsActivity` and
-`TransactionHistoryActivity` follow the intended pattern: **ViewModel +
-StateFlow, collected in Compose**, with Activity↔Compose one-shot events
-carried by a shared ViewModel
-([`MainViewModel`](../app/src/main/java/com/paynet/app/viewmodel/MainViewModel.kt))
-rather than static callbacks.
+Screens are plain Kivy widgets (no KivyMD, no `.kv` files), assembled in
+`PayNetApp.build()` on a `ScreenManager`: home (modern
+[`HomeScreen`](../kivy/paynet/ui/home.py) or classic
+[`LegacyHomeScreen`](../kivy/paynet/ui/home_legacy.py), chosen by the saved
+appearance), setup, appearance, settings, diagnostics (test configuration),
+install count, history, and a QR scanner screen added on demand. Dialogs,
+receipts and toasts are layered on a root `FloatLayout` above the screen
+manager, because `ScreenManager` only accepts `Screen` children.
 
-`SetupActivity` and `TestConfigurationActivity` are older and have **no
-ViewModel**: they hold screen state in local `remember { mutableStateOf }` and
-talk to their helpers through a `UICallback` interface. They are listed under
-"Known deliberate simplifications" below — they are first-run screens with no
-state worth surviving process death, and converting them buys little.
+State lives in small view models
+([`paynet/viewmodels.py`](../kivy/paynet/viewmodels.py): `MainViewModel`,
+`TransactionViewModel`) and in plain-Python helpers kept apart from the
+widgets (`SetupHelper` in [`paynet/setup.py`](../kivy/paynet/setup.py),
+`SettingsViewModel` in [`paynet/settings.py`](../kivy/paynet/settings.py),
+`TestConfigurationHelper` in
+[`paynet/ui/diagnostics.py`](../kivy/paynet/ui/diagnostics.py),
+`QRScannerController` in [`paynet/qr/scanner.py`](../kivy/paynet/qr/scanner.py)).
+Kotlin's `StateFlow` became observable values with `subscribe()`; widgets
+are updated from subscriptions through `Clock.schedule_once`, so changes
+land on Kivy's main thread. Keeping logic out of the widgets is what lets
+most of the UI rules run under pytest without opening a window.
 
-All permission and activity results go through `ActivityResultContracts`
-launchers — there are no `onActivityResult` / `onRequestPermissionsResult`
-overrides and no static mutable state bridging the UI.
+Colors have a single source of truth: the tokens in
+[`paynet/theme.py`](../kivy/paynet/theme.py), with
+`status_color(status)` mapping a transaction status to its color
+everywhere. User-visible copy is held as module-level string constants
+beside the code that shows it (ported from the Android `strings.xml`
+values); there is no central strings file and no automated gate against
+inline colors or strings.
 
-Two screens stay classic Views by design: `QRScannerActivity` (a CameraX
-`PreviewView` is a View regardless) and the `CallOverlayService` overlay
-(`ComposeView` inside a `TYPE_APPLICATION_OVERLAY` window needs hand-rolled
-lifecycle/saved-state owners — a known bug source, unacceptable in the window
-that supervises a live payment).
-
-Colors and copy each have a single source of truth. Compose colors come from
-the tokens in [`ui/theme/Color.kt`](../app/src/main/java/com/paynet/app/ui/theme/Color.kt)
-(one named value per visual role; `statusColor(status)` maps a transaction
-status to its color everywhere), layout colors from `colors.xml`, and all
-user-visible strings from `strings.xml`. Two CI gates enforce it: no inline
-`Color(0x…)` outside `ui/theme` (or hex in a layout), and no single-line
-hardcoded `Text("…")` — so a new screen can't quietly reintroduce the drift
-that once spread ~14 near-identical greys across the codebase.
+Kivy is not pixel-identical to Compose: layout, colors, copy, state and
+behavior are preserved; exact animation metrics and some vector icons are
+not (MIGRATION.md lists the per-screen deviations).
 
 ## Persistence
 
-Room, local-only, encrypted at rest with SQLCipher. The database passphrase
-is a random key wrapped by a **non-exportable Android Keystore key**, so it
-never leaves hardware. If that wrapping key is ever lost or invalidated (OS
-update, keystore corruption, some device restores) while the wrapped blob
-survives, [`DatabaseKeyManager`](../app/src/main/java/com/paynet/app/data/DatabaseKeyManager.kt)
-recovers rather than throwing — it discards the stale blob, regenerates the
-key, and the migrator sets the now-unreadable database aside so the app
-starts fresh instead of crash-looping on its first database touch. This runs
-lazily on `Dispatchers.IO`, never the main thread. Schema is at version 3 —
-the only version this codebase has ever produced — with the exported schema
-committed under `app/schemas/`. There are no migrations to carry yet;
-`fallbackToDestructiveMigration` is deliberately absent, so the next schema
-change must ship a real migration and a test for it rather than silently
-wiping payment history. The raw SMS body is never persisted — only a
-constructively-built, privacy-safe excerpt from extracted fields (a CI grep
-gate blocks reintroducing raw-body logging).
+**Local-only, and not encrypted at rest.** Transactions live in a stdlib
+`sqlite3` database ([`paynet/db/database.py`](../kivy/paynet/db/database.py))
+at `paynet.db` in Kivy's per-user data directory. The Kotlin app used Room
+with SQLCipher and an Android-Keystore-wrapped key; that has no drop-in
+Python equivalent, and SQLCipher parity is an open item in MIGRATION.md's
+*Parity risks*. Until it lands, anyone who can read the app's data
+directory can read the payment history.
 
-## Components (AndroidManifest)
+`Database` wraps one connection behind a `threading.RLock`, and its SQL
+mirrors the Kotlin DAO one to one, including the lifecycle guards: a
+confirmation lands only on a PENDING row, `transition_status` only moves a
+row out of the expected status, and stale PENDING rows are discarded past
+their deadline. Queries are synchronous and return lists; the UI re-queries
+on demand. The schema is created with `CREATE TABLE IF NOT EXISTS` and has
+**no version number and no migrations** — the next schema change must add
+both, rather than silently diverging from rows already on disk. Data from
+the Kotlin app's database is not imported.
 
-- **Activities**: `MainActivity` (sole LAUNCHER, exported), plus Setup /
-  TestConfiguration / QRScanner / PaymentResult (`singleTask`) /
-  TransactionHistory / Settings (all `exported=false`).
-- **Services**: `CallOverlayService`.
-- **Receiver**: `SimpleSMSReceiver` (priority-999, guarded by `BROADCAST_SMS`).
-- **Debug only**: `DebugSmsInjectionReceiver` lives in `src/debug/` and is
-  absent from release builds entirely.
+The raw SMS body is never persisted — only a constructively-built,
+privacy-safe excerpt from extracted fields (`build_excerpt` in
+`paynet/sms/parser.py`). A CI grep gate blocks logging statements that
+interpolate SMS bodies in `paynet/payment`, `paynet/sms` and
+`paynet/overlay`.
 
-Permissions are deliberately minimal and payment-scoped: `CALL_PHONE`,
+Preferences replace Android `SharedPreferences` with small JSON files in the
+same data directory (`PrefsStore`, written temp-file-then-rename):
+`PayNetPrefs.json`, `paynet_settings.json`, `paynet_test_results.json`, the
+operation window in `TransactionDetector.json`, and the install-count
+receipt `install-receipt.json`.
+
+## Platform components (pending packaging)
+
+There is no Android manifest yet. The Kotlin manifest (see `git show
+de292ba:app/src/main/AndroidManifest.xml`) is the reference packaging must
+reproduce:
+
+- **Activities → screens.** The Kotlin activities map to the Kivy screens
+  above; there is a single Kivy activity on Android.
+- **Service**: `CallOverlayService`.
+- **Receiver**: `SimpleSMSReceiver` (priority-999, guarded by
+  `BROADCAST_SMS`).
+- **Debug only**: the Kotlin `DebugSmsInjectionReceiver` was not ported.
+
+Permissions in the Kotlin build were payment-scoped: `CALL_PHONE`,
 `READ_PHONE_STATE`, `ANSWER_PHONE_CALLS` (the overlay's End-call button),
 `RECEIVE_SMS` (never `READ_SMS` — the inbox is never read), `CAMERA`,
 `READ_CONTACTS`, `SYSTEM_ALERT_WINDOW`, `POST_NOTIFICATIONS`, `VIBRATE`, and
-`MODIFY_AUDIO_SETTINGS`. No `INTERNET`, no location, no storage.
+`MODIFY_AUDIO_SETTINGS`, with no location and no storage. The default Kotlin
+manifest also declared `INTERNET` and `ACCESS_NETWORK_STATE`, used only by
+the optional install-count receipt and stripped from releases built without
+a collector URL. The runtime permission groups the app requests are in
+[`paynet/permissions.py`](../kivy/paynet/permissions.py).
 
 ## Threat model & trust boundaries
 
-See [SECURITY.md](../SECURITY.md) for the full disclosure policy and threat
+See [SECURITY.md](SECURITY.md) for the full disclosure policy and threat
 table. In short: the app triggers the dialer and reads confirmation SMS
 locally; the UPI PIN is entered directly into the bank's IVR/dialer and is
 never seen by PayNet; no accessibility service is used, so the app cannot
@@ -233,17 +316,16 @@ read the screen or other apps.
 
 Honest about what isn't consolidated, and why:
 
-- **`CallManager` is instantiated per-caller** (main flow, test screen,
-  overlay service) and the legacy generic `initiateCall()` path still uses a
-  deprecated per-call `PhoneStateListener`. Both are reachable only from the
-  `TestConfiguration` connectivity-test screen, a narrow, low-traffic surface
-  that doesn't justify rewiring to the app-scoped `CallStateCoordinator` for
-  its own sake.
-- **`PaymentResultActivity` remains a classic-View screen.** It's launched
-  from background receivers with specific window/`singleTask` behavior that a
-  Compose rewrite would have to reproduce exactly for no user-facing gain —
-  pattern purity alone isn't worth the regression surface on a
-  payment-outcome screen.
+- **`CallManager` is not app-scoped.** In the Kotlin app it was instantiated
+  per caller (main flow, test screen, overlay service), and the legacy
+  generic call path used its own per-call listener rather than the
+  app-scoped `CallStateCoordinator`. The port keeps the same shape: no
+  `CallManager` is held by `AppContainer`, and the diagnostics screen's test
+  dial is an injected callable.
+- **The port is synchronous where Kotlin used coroutines.** Store writes run
+  on the calling thread; there is no background I/O dispatcher. That keeps
+  the claim-then-write invariants simple, at the cost of sqlite writes on
+  whatever thread delivers the event.
 - The **permissive SMS matcher** is intentional — banks phrase confirmations
   inconsistently, and the downstream tiers (a debit with a mismatched amount
   is dropped outright — it isn't this payment's confirmation, and the

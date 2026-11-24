@@ -4,6 +4,12 @@ Tracking document for migrating PayNet from Kotlin/Jetpack Compose to
 Kivy/Python. Updated after every migrated feature. Source of truth for
 what is done, what is verified, and what is not.
 
+> **The Kotlin app has been removed from the repository.** The repo is
+> Python-only. The last commit containing the Kotlin source (`app/`, Gradle
+> build, Kotlin CI) is `de292ba`; every `Kotlin source` path below and every
+> "Ported from app/…" header in `kivy/` refers to that tree, e.g.
+> `git show de292ba:app/src/main/AndroidManifest.xml`.
+
 ## Guardrails (binding for the whole migration)
 
 - **No git history rewrites.** New atomic commits only, one per completed
@@ -17,9 +23,9 @@ what is done, what is verified, and what is not.
   device (dialler hand-off, IVR, call audio, overlay window, SMS broadcast,
   camera) is listed under *Not verified from desktop* — never claimed as
   verified parity.
-- **The app stays runnable throughout.** The Kotlin app is untouched on
-  this branch; the Kivy app must launch (`python kivy/main.py`) and pass
-  its test suite (`pytest kivy/tests`) after every commit.
+- **The app stays runnable throughout.** The Kivy app must launch
+  (`python kivy/main.py`) and pass its test suite (`pytest kivy/tests`)
+  after every commit.
 
 ## Audit of the existing app (Kotlin, 16.8k LOC main / 8.5k LOC tests)
 
@@ -34,7 +40,7 @@ Feature inventory (Kotlin source → planned Python module):
 | # | Feature | Kotlin source (main LOC) | Python target |
 |---|---------|--------------------------|---------------|
 | 1 | Payment input validation, UPI 123PAY dial-string builder, phone/currency utils, prompt timing | payment/Upi123CallStringBuilder.kt, PaymentInputValidator.kt, InvalidReasonMessages.kt, PaymentPromptTiming.kt, utils/{PhoneNumberUtils,PaymentPhoneInput,CurrencyFormat}.kt, constants/AppConstants.kt | paynet/payment/{call_string,validation,messages,prompt_timing}.py, paynet/utils/{phone,currency}.py, paynet/constants.py |
-| 2 | App shell: Kivy app, navigation, theme tokens | ui/theme/{Color,Type,Theme,HomeColors,OnboardingColors,AccentTheme,PayNetViewTheme}.kt, PayNetApplication.kt, di/AppContainer.kt | paynet/app.py, paynet/theme.py, paynet/container.py |
+| 2 | App shell: Kivy app, navigation, theme tokens | ui/theme/{Color,Type,Theme,HomeColors,OnboardingColors,AccentTheme,PayNetViewTheme}.kt, PayNetApplication.kt, di/AppContainer.kt | paynet/app.py (incl. AppContainer), paynet/theme.py |
 | 3 | SMS transaction parser (pure, per-bank corpus) | payment/sms/SmsTransactionParser.kt | paynet/sms/parser.py |
 | 4 | Persistence: transactions, settings | data/{AppDatabase,Transaction,TransactionDao,TransactionStatus,PaymentStatus,PaymentDetails,UPIData,SettingsRepository,TestResults,DatabaseKeyManager,DatabaseEncryptionMigrator}.kt, repository/TransactionRepository.kt | paynet/db/{models,database,settings}.py, paynet/repository.py |
 | 5 | Payment session state machine | payment/PaymentSessionManager.kt, states/PaymentState.kt, payment/{PaymentWindowObserver,QrWaitingState}.kt | paynet/payment/{session,state,window}.py |
@@ -49,7 +55,7 @@ Feature inventory (Kotlin source → planned Python module):
 | 14 | Payment result screen + progress dialogs + notifications | ui/activities/PaymentResultActivity.kt, ui/dialogs/{UssdProgressDialog,Upi123ProgressDialog}.kt, managers/TransactionDialogManager.kt, ui/components/{PaymentPromptLayout,PaymentAnswerButton,SmsPermissionNotice}.kt | paynet/ui/result.py, paynet/ui/prompts.py |
 | 15 | Call overlay service | services/{CallOverlayService,CallOverlayView,CallOverlayMessageMotion}.kt, utils/OverlayLogger.kt | paynet/overlay/service.py |
 | 16 | Diagnostics: test-configuration screen, permissions, install metrics | TestConfigurationActivity.kt, helpers/TestConfigurationHelper.kt, managers/PermissionManager.kt, metrics/{InstallReporter,InstallCountActivity}.kt, utils/ContextExt.kt, helpers/MainActivityHelper.kt | paynet/ui/diagnostics.py, paynet/permissions.py, paynet/metrics.py |
-| 17 | Android packaging: buildozer, manifest parity (permissions, SMS receiver, overlay service), CI | AndroidManifest.xml, build.gradle.kts, .github/workflows/build.yml | kivy/buildozer.spec, CI job |
+| 17 | Android packaging: buildozer, manifest parity (permissions, SMS receiver, overlay service), CI | AndroidManifest.xml, build.gradle.kts (both at `de292ba`) | kivy/buildozer.spec, Android build CI job (Python CI already in .github/workflows/build.yml) |
 
 ## Decisions
 
@@ -57,13 +63,13 @@ Feature inventory (Kotlin source → planned Python module):
   not stock Material; Kivy widgets + the ported theme tokens give exact
   control with fewer dependencies.
 - **Kivy app lives in `kivy/`** (package `paynet`, entry `kivy/main.py`,
-  tests `kivy/tests`). The Kotlin app stays in place and buildable until
-  the final phase.
+  tests `kivy/tests`). The Kotlin app was removed once features 1-16 were
+  ported (see the note at the top).
 - **sqlite3 (stdlib) replaces Room.** SQLCipher/Keystore at-rest encryption
   is a parity risk on the Python side — see *Parity risks*.
 - **Android APIs via pyjnius** (dialer, telephony callbacks, SMS broadcast,
-  contacts, camera, overlay window). CameraX + ZXing can stay as Gradle
-  dependencies through buildozer; ZXing decode stays the same library.
+  contacts, camera, overlay window). CameraX + ZXing can be pulled in as
+  Android dependencies through buildozer; ZXing decode stays the same library.
 - **Coroutines → synchronous writes + threading.Timer.** The session
   manager's fire-and-forget coroutine writes become synchronous calls, so
   the pendingInsertJob-join invariant (a confirmation must never beat the

@@ -27,12 +27,12 @@ labels: bug
 
 - Android version (e.g. 14):
 - Device model (e.g. Pixel 7):
-- App build (debug / release, commit SHA if known):
+- Platform (desktop or Android device) and commit SHA if known:
 - Carrier / SIM (relevant for USSD-based flows):
 
 ## Logs / screenshots
 
-<!-- adb logcat output, error stacks, or screenshots. Redact any phone numbers, UPI IDs, or transaction amounts. -->
+<!-- Kivy log output (~/.kivy/logs), error stacks, or screenshots. Redact any phone numbers, UPI IDs, or transaction amounts. -->
 
 ## Additional context
 

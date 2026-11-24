@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="PayNetReceiptMotion">
-        <item name="android:windowEnterAnimation">@anim/receipt_enter</item>
-        <item name="android:windowExitAnimation">@anim/receipt_exit</item>
-    </style>
-</resources>

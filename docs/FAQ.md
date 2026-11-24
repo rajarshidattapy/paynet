@@ -1,14 +1,24 @@
 # FAQ
 
-### Why does the app have no `INTERNET` permission?
+### Does the app use the internet?
 
-Because it genuinely never talks to the network. PayNet is a client over
-payment rails that already exist on the device — `*99#` USSD and UPI 123Pay
-IVR — which run over the cellular voice/signalling channel, not IP. There is
-no backend, no analytics, and no telemetry, so there is nothing for an
-`INTERNET` permission to do. The absence of the permission is the strongest
-possible proof of that: an app without it *cannot* exfiltrate your data, no
-matter what its code claims.
+Not for payments. PayNet is a client over payment rails that already exist
+on the device — `*99#` USSD and UPI 123Pay IVR — which run over the cellular
+voice/signalling channel, not IP. There is no backend, no analytics, and no
+telemetry, and none of the payment code opens a network connection.
+
+The one network feature is an optional, consent-gated install count
+(`kivy/paynet/metrics.py`): a one-time report of a random installation ID
+and the app version. It is only offered when a collector URL is configured
+(`PAYNET_INSTALL_METRICS_URL`, empty by default), and in the current build
+the HTTP request itself is not implemented, so nothing is ever sent.
+
+The strongest proof would be an Android build with no `INTERNET` permission
+at all — an app without it *cannot* exfiltrate your data, no matter what its
+code claims. The earlier Kotlin app's releases built without a collector
+shipped that way. The Python port has no Android manifest yet (packaging is
+still pending — see [MIGRATION.md](../MIGRATION.md)), so that guarantee has
+to be re-established when it lands; there is no APK to check it on today.
 
 ### Why `RECEIVE_SMS` but not `READ_SMS`?
 
@@ -18,7 +28,9 @@ payment is in progress, to catch the bank's confirmation message. It never
 reads your inbox, so it never requests `READ_SMS`. The confirmation SMS is
 parsed locally and only a privacy-safe excerpt (built from extracted fields,
 never the raw message body) is stored — a CI check blocks any code that
-would log the raw body.
+would log the raw body. (The Android receiver that hands incoming SMS to the
+app is part of the packaging work still pending; the matching logic behind
+it is ported and tested.)
 
 ### Does the app ever see my UPI PIN?
 
@@ -33,7 +45,8 @@ Google Play's restricted-permission policy effectively bars apps that use SMS
 permissions for this kind of use case. Rather than compromise the design,
 PayNet is published as source that you build yourself. Being fully FOSS, it
 would also suit an F-Droid-style store, but it is not in one today and no
-prebuilt APK is distributed from here.
+prebuilt APK is distributed from here. The Python/Kivy codebase cannot be
+built into an APK yet either — Android packaging is still pending.
 
 ### How can a payment succeed if the app can't reach the internet?
 
@@ -54,9 +67,10 @@ SMS inbox to see whether the money actually moved. Confirmations that arrive
 a little late are still picked up. This is the honest-by-design behavior; see
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
-Transactions marked `UNVERIFIED` in your history are from an older version,
-which recorded unconfirmed attempts instead of discarding them; they mean
-the same thing — PayNet doesn't know whether that payment went through.
+The `UNVERIFIED` status comes from older versions, which recorded
+unconfirmed attempts instead of discarding them; it means the same thing —
+PayNet doesn't know whether that payment went through. The history screen
+still understands it, but the current code never writes it.
 
 ### What are the carrier / USSD limitations?
 
@@ -76,12 +90,17 @@ compromise.
 The 123Pay IVR call goes out on the device's **default voice SIM**, which may
 not be the UPI-registered SIM you intend to pay from. On dual-SIM devices,
 PayNet warns you before dialing if the two don't match, so a payment doesn't
-fail mysteriously.
+fail mysteriously. (That check reads the device's SIM subscriptions, so in
+the Python port it is one of the device-only pieces still to be wired up
+with Android packaging.)
 
 ### Is it safe to build and run myself?
 
-Yes — and you're encouraged to. `./gradlew assembleDebug` produces a working
-APK with no device, and `./gradlew installDebug` runs it on one. See
-[TESTING.md](TESTING.md) for how payment outcomes are verified (including a
-debug tool that replays a bank SMS through the live pipeline without needing
-a real bank), and [CONTRIBUTING.md](../CONTRIBUTING.md) to get started.
+Yes — and you're encouraged to. `cd kivy && python main.py` runs the app on
+your desktop, and `python -m pytest tests -q` runs the test suite. The
+desktop build never dials and never sends a payment: every phone, SMS and
+camera action is stubbed out until Android packaging lands, so today it is
+for exploring the UI and the code, not for paying. See
+[TESTING.md](TESTING.md) for how payment outcomes are verified (including
+how to replay a bank SMS through the live pipeline without needing a real
+bank), and [CONTRIBUTING.md](CONTRIBUTING.md) to get started.

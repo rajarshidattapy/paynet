@@ -16,7 +16,8 @@
 ## Testing
 
 <!-- How you verified this works. Examples:
-     - Built with `./gradlew assembleDebug` and installed on Pixel 6 (Android 14).
+     - `cd kivy && python -m pytest tests -q` passes.
+     - Checked the screen with the matching `kivy/render_*.py` harness.
      - Triggered the QR → USSD → SMS flow with HDFC test SMS.
      - Confirmed Settings screen still renders.
 -->
@@ -27,8 +28,7 @@
 
 ## Checklist
 
-- [ ] `./gradlew assembleDebug` succeeds locally
-- [ ] `./gradlew :app:lintDebug` passes
-- [ ] No new entries added to `app/lint-baseline.xml`
+- [ ] `cd kivy && python -m pytest tests -q` passes
+- [ ] `cd kivy && python main.py` launches
 - [ ] Self-review of the diff completed
 - [ ] Documentation / comments updated where behavior changed
