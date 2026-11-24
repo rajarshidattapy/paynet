@@ -79,6 +79,9 @@ class OnboardingPage(FloatLayout):
     def add_content(self, widget):
         self._stack.add_widget(widget)
 
+    def clear_content(self):
+        self._stack.clear_widgets()
+
 
 class OnboardingDialog(FloatLayout):
     """OnboardingDialog.kt: centred card (max 400dp, r24, surface) with a

@@ -64,6 +64,14 @@ class AppContainer:
         # file, as TransactionDetector.getInstance does on Android.
         self.transaction_detector = TransactionDetector(
             PrefsStore(data_dir, "TransactionDetector"))
+        # Feature 16: metrics/InstallReporter. DEVIATION: the BuildConfig
+        # INSTALL_METRICS_URL gradle property maps to an environment variable;
+        # empty means unconfigured, exactly like the Kotlin default.
+        from paynet.metrics import InstallReporter
+        self.install_reporter = InstallReporter(
+            data_dir,
+            os.environ.get("PAYNET_INSTALL_METRICS_URL", ""),
+            version_name="1.0.0-sms")
 
 
 class PayNetApp(App):
@@ -116,17 +124,53 @@ class PayNetApp(App):
             self.container.test_results, self.container.repository,
             on_back=self._leave_settings,
             on_open_setup=self._reopen_setup,
-            on_appearance_changed=self._apply_appearance_to_home)
+            on_appearance_changed=self._apply_appearance_to_home,
+            install_reporter_configured=self.container.install_reporter.configured,
+            on_open_install_count=lambda: self._open_install_count(from_settings=True))
         self.settings_screen = Screen(name="settings")
         self.settings_screen.add_widget(self._settings_widget)
         self.settings_screen.bind(
             on_enter=lambda *_: self._settings_widget.refresh())
         sm.add_widget(self.settings_screen)
 
+        # Feature 16: TestConfigurationActivity + InstallCountActivity.
+        from paynet.metrics import InstallCountScreen
+        from paynet.ui.diagnostics import (TestConfigurationHelper,
+                                           TestConfigurationScreen)
+        reporter = self.container.install_reporter
+        self._diagnostics_helper = TestConfigurationHelper(
+            self.container.prefs, self.container.test_results,
+            show_toast=self._show_toast,
+            navigate_to_main=lambda: setattr(
+                sm, "current", onboarding.route_after_payments(self.container.prefs)),
+            # DEVIATION: the phone-permission launcher and the *99# dial are
+            # device-only (feature 17); nothing is ever dialled here.
+            request_phone_permissions=lambda: None,
+            dial=None)
+        self._diagnostics_helper.initialize()
+        self.diagnostics_screen = Screen(name="diagnostics")
+        self.diagnostics_screen.add_widget(TestConfigurationScreen(
+            self._diagnostics_helper,
+            on_open_setup_review=lambda: setattr(sm, "current", "setup"),
+            on_navigate_main=lambda: setattr(
+                sm, "current", onboarding.route_after_payments(self.container.prefs))))
+        sm.add_widget(self.diagnostics_screen)
+
+        self._install_count_from_settings = False
+        self.install_count_screen = Screen(name="install_count")
+        self.install_count_screen.add_widget(InstallCountScreen(
+            reporter, self._finish_install_count,
+            from_settings=self._install_count_from_settings))
+        sm.add_widget(self.install_count_screen)
+
         if onboarding.needs_appearance(self.container.prefs):
             sm.current = "appearance"
         elif not self.container.prefs.get("setup_completed", False):
             sm.current = "setup"
+        elif reporter.needs_choice():
+            # MainActivity.onCreate: the consent screen runs before anything
+            # else on the first consented open.
+            sm.current = "install_count"
 
         # Feature 9: TransactionHistoryActivity as the second screen.
         vm0 = self.container.transaction_view_model
@@ -158,6 +202,8 @@ class PayNetApp(App):
             )
         )
         home_screen.bind(on_enter=lambda *_: self._refresh_home())
+        # PayNetApplication: report on foreground events when configured.
+        home_screen.bind(on_enter=lambda *_: self.container.install_reporter.report())
         Clock.schedule_once(lambda *_: self._refresh_home(), 0)
         # ScreenManager accepts only Screen children, so dialogs, toasts and
         # receipt overlays layer onto a plain root above it.
@@ -362,10 +408,24 @@ class PayNetApp(App):
         return self._transfer_initiator
 
     def _open_setup_required(self):
-        # Kotlin: navigateToTestConfiguration(). DEVIATION: the
-        # TestConfigurationActivity screen is feature 16; until then setup
-        # completion and readiness gates route home instead.
+        # Kotlin: navigateToTestConfiguration() (feature 16).
         if not self.container.prefs.get("setup_completed", False):
             self.sm.current = "setup"
         else:
-            self.sm.current = "home"
+            self.sm.current = "diagnostics"
+
+    def _open_diagnostics(self):
+        self.sm.current = "diagnostics"
+
+    def _open_install_count(self, from_settings=False):
+        # metrics/InstallCountActivity.
+        self._install_count_from_settings = from_settings
+        self.sm.current = "install_count"
+
+    def _finish_install_count(self, _open_main):
+        # The screen baked its from_settings flag at build time; the app's
+        # flag (set by _open_install_count) is the current one.
+        if not self._install_count_from_settings:
+            self.sm.current = onboarding.route_after_payments(self.container.prefs)
+        else:
+            self.sm.current = "settings"

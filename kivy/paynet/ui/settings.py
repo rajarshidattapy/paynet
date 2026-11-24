@@ -349,7 +349,8 @@ class SettingsScreen(FloatLayout):
                  transaction_repository, on_back, on_open_setup,
                  on_appearance_changed=None, on_open_privacy=None,
                  on_open_link=None, permission_provider=None,
-                 install_reporter_configured=None, accent=None, **kwargs):
+                 install_reporter_configured=None, on_open_install_count=None,
+                 accent=None, **kwargs):
         kwargs.setdefault("size_hint", (1, 1))
         super().__init__(**kwargs)
         self._accent = accent or theme.VIOLET_ACCENT_THEME
@@ -365,6 +366,7 @@ class SettingsScreen(FloatLayout):
         self._permission_provider = permission_provider or (lambda: {
             "phone": False, "camera": False, "contacts": False, "overlay": False})
         self._install_reporter_configured = install_reporter_configured or (lambda: False)
+        self._on_open_install_count = on_open_install_count or (lambda: None)
         self.view_model = SettingsViewModel()
         self._sheet = None
         self._appearance = HomeAppearance.read(prefs)
@@ -448,10 +450,10 @@ class SettingsScreen(FloatLayout):
                                 on_click=lambda: self._open_sheet("version"),
                                 accent=self._accent), divider=False)
         if self._install_reporter_configured():
-            # metrics/InstallReporter is feature 16.
             about_card.add_row(_Row("dashboard", "Installation count",
                                     "Manage optional reporting",
-                                    on_click=lambda: None, accent=self._accent))
+                                    on_click=self._on_open_install_count,
+                                    accent=self._accent))
         about_card.add_row(_Row("shield", ROW_PRIVACY, ROW_PRIVACY_SUMMARY,
                                 on_click=self._on_open_privacy,
                                 accent=self._accent))

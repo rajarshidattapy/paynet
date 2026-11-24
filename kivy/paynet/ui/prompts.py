@@ -135,10 +135,11 @@ class _SetupDialog:
 
 
 def ussd_progress_dialog(on_configured=None, on_not_configured=None,
-                         on_dismiss=None, on_does_not_work=None) -> _SetupDialog:
+                         on_dismiss=None, on_does_not_work=None,
+                         progress_step=INITIALIZING) -> _SetupDialog:
     return _SetupDialog(USSD_PROGRESS_TITLE, USSD_PROGRESS_MESSAGE,
                         USSD_CONFIRM_TITLE, USSD_CONFIRM_MESSAGE,
-                        INITIALIZING, show_does_not_work=True,
+                        progress_step, show_does_not_work=True,
                         on_configured=on_configured,
                         on_not_configured=on_not_configured,
                         on_dismiss=on_dismiss,
