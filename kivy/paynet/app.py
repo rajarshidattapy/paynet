@@ -29,6 +29,7 @@ from paynet.db.settings import PrefsStore, TestResultsManager
 from paynet.payment.initiate import TransferInitiator
 from paynet.payment.session import PaymentSessionManager
 from paynet.repository import TransactionRepository
+from paynet.sms.detector import TransactionDetector
 from paynet.telephony.coordinator import CallStateCoordinator
 from paynet.ui.history import HistoryScreen, TransactionDetailView
 from paynet.ui.home import HomeScreen, home_bank_name
@@ -56,6 +57,11 @@ class AppContainer:
         self.call_coordinator = CallStateCoordinator(telephony=None)
         self.payment_session_manager = PaymentSessionManager(
             store=self.repository, coordinator=self.call_coordinator)
+        # The operation-window detector; SMS ingestion itself is wired to
+        # the platform receiver in feature 17. It owns a separate prefs
+        # file, as TransactionDetector.getInstance does on Android.
+        self.transaction_detector = TransactionDetector(
+            PrefsStore(data_dir, "TransactionDetector"))
 
 
 class PayNetApp(App):
@@ -188,7 +194,27 @@ class PayNetApp(App):
         self.container.transaction_view_model.select_transaction(payment.id)
 
     def _open_scanner(self):
-        pass
+        # Feature 11: QRScannerActivity as its own screen. Camera, torch,
+        # photo picker and the USSD dial are device-only (feature 17);
+        # the payment flow itself runs fully.
+        from paynet.ui.qr_scanner import QRScannerScreen
+        self._scanner = QRScannerScreen(
+            self.container.payment_session_manager,
+            detector=self.container.transaction_detector,
+            show_toast=self._show_toast,
+            on_close=self._close_scanner,
+            name="qr_scanner")
+        self.sm.add_widget(self._scanner)
+        self.sm.current = "qr_scanner"
+
+    def _close_scanner(self, _result):
+        scanner = getattr(self, "_scanner", None)
+        if scanner is None:
+            return
+        scanner.controller.on_destroy(is_finishing=True)
+        self.sm.remove_widget(scanner)
+        self._scanner = None
+        self.sm.current = "home"
 
     def _show_toast(self, message):
         # Toast port: transient bottom bar, same shape as the history

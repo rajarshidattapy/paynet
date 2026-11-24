@@ -188,9 +188,20 @@ class Glyph(Widget):
                 Line(points=[x + w * .63, y + h * .37, x + w * .85, y + h * .15], width=lw, cap="round")
             elif self._kind == "receipt":
                 Line(rounded_rectangle=(x + w * .2, y + h * .1, w * .6, h * .8, w * .08), width=lw)
-                Line(points=[x + w * .33, y + h * .64, x + w * .67, y + h * .64], width=lw)
-                Line(points=[x + w * .33, y + h * .46, x + w * .67, y + h * .46], width=lw)
-                Line(points=[x + w * .33, y + h * .28, x + w * .55, y + h * .28], width=lw)
+            elif self._kind == "flash":
+                # Lightning bolt (torch toggle), a thick zigzag strip.
+                Line(points=[x + w * .56, y + h * .88, x + w * .34, y + h * .47,
+                             x + w * .52, y + h * .47, x + w * .44, y + h * .12],
+                     width=lw * 1.4, cap="round", joint="round")
+            elif self._kind == "gallery":
+                # Framed picture (pick from gallery): frame, sun, mountain.
+                # NOTE: extra 2-point Line segments batched with the frame fill
+                # the frame on llvmpipe - keep this icon to these three strokes.
+                Line(rectangle=(x + w * .22, y + h * .22, w * .56, h * .56), width=lw)
+                Ellipse(pos=(x + w * .32, y + h * .56), size=(w * .1, h * .1))
+                Line(points=[x + w * .26, y + h * .26, x + w * .44, y + h * .48,
+                             x + w * .56, y + h * .34, x + w * .74, y + h * .52],
+                     width=lw * .7, cap="round", joint="round")
             elif self._kind == "phone":
                 # Handset: earpiece, arc, mouthpiece.
                 Line(circle=(x + w * .5, y + h * .42, w * .3, 200, 340), width=lw)
