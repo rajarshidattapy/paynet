@@ -23,8 +23,9 @@ from paynet import theme  # noqa: F401  (imported for screens)
 from paynet.db.database import Database
 from paynet.db.settings import PrefsStore, TestResultsManager
 from paynet.repository import TransactionRepository
-from paynet.ui.home import HomeScreen
+from paynet.ui.home import HomeScreen, home_bank_name
 from paynet.ui.home_appearance import HomeAppearance
+from paynet.ui.home_legacy import LegacyHomeScreen
 from paynet.viewmodels import MainViewModel, TransactionViewModel
 
 
@@ -59,18 +60,35 @@ class PayNetApp(App):
 
         sm = ScreenManager()
         home_screen = Screen(name="home")
-        self.home = HomeScreen(
-            bank_id=bank,
-            monochrome=appearance.monochrome,
-            is_upi123_ready=bool(results and results.upi123Enabled),
-            is_ussd_ready=bool(results and results.ussdEnabled),
-            on_settings=self._open_settings,
-            on_history=self._open_history,
-            on_retry=self.container.transaction_view_model.refresh,
-            on_transaction=self._open_transaction,
-            on_scan=self._open_scanner,
-            on_pay_contact=self._open_pay_contact,
-        )
+        # HomeDashboard.kt: the legacy dashboard only when the appearance is
+        # classic and not monochrome.
+        if appearance.classic and not appearance.monochrome:
+            self.home = LegacyHomeScreen(
+                bank_name=home_bank_name(bank),
+                monochrome=False,
+                is_upi123_ready=bool(results and results.upi123Enabled),
+                is_ussd_ready=bool(results and results.ussdEnabled),
+                on_settings=self._open_settings,
+                on_history=self._open_history,
+                on_retry=self.container.transaction_view_model.refresh,
+                on_transaction=self._open_transaction,
+                on_scan=self._open_scanner,
+                on_pay_contact=self._open_pay_contact,
+            )
+        else:
+            self.home = HomeScreen(
+                bank_id=bank,
+                monochrome=appearance.monochrome,
+                classic=appearance.classic,
+                is_upi123_ready=bool(results and results.upi123Enabled),
+                is_ussd_ready=bool(results and results.ussdEnabled),
+                on_settings=self._open_settings,
+                on_history=self._open_history,
+                on_retry=self.container.transaction_view_model.refresh,
+                on_transaction=self._open_transaction,
+                on_scan=self._open_scanner,
+                on_pay_contact=self._open_pay_contact,
+            )
         home_screen.add_widget(self.home)
         sm.add_widget(home_screen)
 
@@ -96,7 +114,13 @@ class PayNetApp(App):
         self.home.is_upi123_ready = bool(results and results.upi123Enabled)
         self.home.is_ussd_ready = bool(results and results.ussdEnabled)
         self.home.is_scanning = False
-        self.home.history_panel.set_scan_state(self.home._scan_state(), True)
+        # The modern panel shows the scan state on the FAB; the legacy
+        # variant rebuilds its action buttons.
+        if hasattr(self.home, "history_panel"):
+            self.home.history_panel.set_scan_state(self.home._scan_state(), True)
+        elif hasattr(self.home, "update_readiness"):
+            self.home.update_readiness(
+                self.home.is_upi123_ready, self.home.is_ussd_ready, False)
         self.container.transaction_view_model.refresh()
 
     # Navigation targets arrive with their own features (MIGRATION.md);

@@ -168,6 +168,17 @@ class Glyph(Widget):
                 Line(circle=(x + w * .5, y + h * .5, w * .4), width=lw)
                 Line(points=[x + w * .5, y + h * .5, x + w * .5, y + h * .78], width=lw)
                 Line(points=[x + w * .5, y + h * .5, x + w * .72, y + h * .44], width=lw)
+            elif self._kind == "wallet":
+                # AccountBalanceWallet stand-in: purse body with flap and card slot.
+                Line(rounded_rectangle=(x + w * .1, y + h * .2, w * .8, h * .58, w * .1), width=lw)
+                Line(points=[x + w * .1, y + h * .62, x + w * .9, y + h * .62], width=lw)
+                Ellipse(pos=(x + w * .66, y + h * .4), size=(w * .1, w * .1))
+            elif self._kind == "lock":
+                Line(rounded_rectangle=(x + w * .22, y + h * .12, w * .56, h * .44, w * .08), width=lw)
+                Line(points=[x + w * .32, y + h * .56, x + w * .32, y + h * .72], width=lw)
+                Line(points=[x + w * .68, y + h * .56, x + w * .68, y + h * .72], width=lw)
+                Line(points=[x + w * .32, y + h * .72, x + w * .5, y + h * .9,
+                             x + w * .68, y + h * .72], width=lw)
 
 
 class ActionTile(ButtonBehavior, RoundedBox):
@@ -450,6 +461,7 @@ class HomeScreen(FloatLayout):
         self,
         bank_id: str = "hdfc",
         monochrome: bool = True,
+        classic: bool = False,
         is_upi123_ready: bool = False,
         is_ussd_ready: bool = False,
         is_scanning: bool = False,
@@ -464,13 +476,16 @@ class HomeScreen(FloatLayout):
         super().__init__(**kwargs)
         self.bank_id = bank_id
         self.monochrome = monochrome
+        # HomeDashboard.kt: the modern layout with the classic appearance
+        # keeps the black canvas and fixed 24dp insets.
+        self.classic = classic
         self.is_upi123_ready = is_upi123_ready
         self.is_ussd_ready = is_ussd_ready
         self.is_scanning = is_scanning
         palette = theme.accent_theme_for(monochrome)
         self._controls = theme.HOME_PEARL if monochrome else palette.header_gradient_end
         self._control_ink = theme.HOME_CONTROL_INK if monochrome else (1, 1, 1, 1)
-        canvas_bg = theme.HOME_MODERN_CANVAS
+        canvas_bg = (0, 0, 0, 1) if classic else theme.HOME_MODERN_CANVAS
 
         with self.canvas.before:
             Color(rgba=canvas_bg)
@@ -537,7 +552,10 @@ class HomeScreen(FloatLayout):
         bottom_inset = max(h * 0.04, dp(28))
         history_height = min(max(h * 0.5, dp(382)), dp(420))
 
-        self._root.padding = [dp(16), top_inset, dp(16), bottom_inset]
+        if self.classic:
+            self._root.padding = [dp(16), dp(24), dp(16), dp(24)]
+        else:
+            self._root.padding = [dp(16), top_inset, dp(16), bottom_inset]
         self._root.width = content_width
         self._root.center_x = self.center_x
         self._root.y = self.y

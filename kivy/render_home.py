@@ -24,8 +24,14 @@ from paynet.db.models import Transaction  # noqa: E402
 from paynet.db.settings import TestResults  # noqa: E402
 
 
-def run(state: str = "payments") -> None:
+def run(state: str = "payments", legacy: bool = False) -> None:
     data_dir = tempfile.mkdtemp(prefix="paynet-render-")
+    if legacy:
+        # Classic appearance must exist before build() reads it.
+        from paynet.db.settings import PrefsStore
+        prefs = PrefsStore(data_dir, "PayNetPrefs")
+        prefs.put("home_classic", True)
+        prefs.put("home_monochrome", False)
     app = PayNetApp(data_dir=data_dir)
 
     def seed(*_):
@@ -73,4 +79,5 @@ def run(state: str = "payments") -> None:
 if __name__ == "__main__":
     import sys
 
-    run(sys.argv[1] if len(sys.argv) > 1 else "payments")
+    run(sys.argv[1] if len(sys.argv) > 1 else "payments",
+        legacy="legacy" in sys.argv)
