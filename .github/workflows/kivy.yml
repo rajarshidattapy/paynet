@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Flowpay
+# CI for the Kivy port (feature 17): the ported logic runs its pytest suite
+# on every push and pull request. Headless by construction — the suite
+# never opens a window.
+
+name: Kivy port
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: kivy pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@82c7e63141ccdc016bcfd69ca4d8315e4a1f48de # v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "kivy[base]" pytest
+
+      - name: Run the Kivy port test suite
+        working-directory: kivy
+        run: python -m pytest tests -q
