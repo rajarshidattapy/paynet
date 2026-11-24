@@ -38,7 +38,9 @@ class TransferInitiator:
         show_toast: Callable[[str], None],
         on_setup_required: Callable[[], None] = lambda: None,
         place_call: Optional[Callable[[str, str], bool]] = None,
+        detector=None,
     ) -> None:
+        self._detector = detector
         self._test_results = test_results
         self._session_manager = session_manager
         self._show_toast = show_toast
@@ -95,9 +97,20 @@ class TransferInitiator:
             return None
         transaction_id = self._session_manager.begin(
             phone_number, amount, recipient_name=recipient_name)
-        # DEVIATION: TransactionDetector.startOperation, the IVR call itself
-        # and the call overlay are device-only. When a telephony layer is
-        # supplied it places the call; the desktop build never dials.
+        # Open the SMS operation window against this session's PENDING row,
+        # so the bank's confirming SMS can be matched back to it.
+        if self._detector is not None:
+            self._detector.start_operation(
+                operation_type="UPI_123",
+                expected_amount=amount,
+                phone_number=phone_number,
+                session_txn_id=transaction_id)
+        # DEVIATION: the IVR call itself and the call overlay are
+        # device-only. When a telephony layer is supplied it places the
+        # call; the desktop build never dials.
         if self._place_call is not None:
-            self._place_call(phone_number, amount)
+            if self._place_call(phone_number, amount) is False:
+                log.error("Failed to initiate UPI123 call")
+                self._session_manager.on_dial_failed(
+                    "Could not start the payment call")
         return transaction_id

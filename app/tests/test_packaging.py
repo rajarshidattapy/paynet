@@ -38,7 +38,10 @@ def test_spec_permissions_match_the_kotlin_manifest():
 def test_spec_identity_and_sdk_parity():
     spec = _spec()
     assert _spec_value(spec, "package.domain") == "com.paynet.app"
-    assert _spec_value(spec, "package.name") == "paynet.sms"
+    assert _spec_value(spec, "package.name") == "sms"
+    # buildozer joins domain + name: this is the Kotlin applicationId.
+    assert (_spec_value(spec, "package.domain") + "."
+            + _spec_value(spec, "package.name")) == "com.paynet.app.sms"
     assert _spec_value(spec, "version") == "1.0.0-sms"
     assert _spec_value(spec, "android.minapi") == "29"
     assert _spec_value(spec, "android.api") == "36"
@@ -84,10 +87,23 @@ def test_java_receiver_forwards_assembled_sms_to_the_bridge():
     assert "PayNetSmsBridge.dispatch" in source
 
 
-def test_ci_workflow_runs_the_kivy_suite():
-    path = os.path.join(REPO_ROOT, ".github", "workflows", "kivy.yml")
+def test_spec_keeps_tests_and_dev_scripts_out_of_the_apk():
+    spec = _spec()
+    excluded = [d.strip() for d in _spec_value(spec, "source.exclude_dirs").split(",")]
+    assert {"tests", "snapshot_failures", "p4a", "android-src"} <= set(excluded)
+    for directory in ("tests", "p4a", "android-src"):
+        assert os.path.isdir(os.path.join(KIVY_DIR, directory)), directory
+    assert _spec_value(spec, "source.exclude_patterns") == "render_*.py"
+
+
+def test_ci_workflow_runs_the_suite_from_the_app_directory():
+    path = os.path.join(REPO_ROOT, ".github", "workflows", "build.yml")
     assert os.path.isfile(path)
     with open(path, encoding="utf-8") as f:
         workflow = f.read()
     assert "pytest tests -q" in workflow
-    assert "working-directory: kivy" in workflow
+    assert "working-directory: app" in workflow
+    # Every path the workflow names must exist (the folder was renamed once
+    # already and CI silently pointed at nothing).
+    for match in re.finditer(r"(?:working-directory:|-r|cache-dependency-path:)\s+(app\S*)", workflow):
+        assert os.path.exists(os.path.join(REPO_ROOT, match.group(1))), match.group(1)

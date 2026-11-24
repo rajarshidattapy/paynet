@@ -116,6 +116,14 @@ class AndroidPermissionRequester:
         ActivityCompat.requestPermissions(
             _activity(), list(permissions), code)
 
+    def request_phone_permissions(self) -> None:
+        """The phone group (CALL_PHONE, READ_PHONE_STATE, ANSWER_PHONE_CALLS,
+        RECEIVE_SMS) requested together before dialling. The screens that
+        call this take a no-argument callable and re-read the live grant state
+        on the next tap, so the result is not forwarded."""
+        from paynet.permissions import PermissionConstants
+        self.request(PermissionConstants.PHONE_PERMISSIONS, lambda _granted: None)
+
 
 # ---------------------------------------------------------------------------
 # Telephony

@@ -45,21 +45,26 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: kivy/requirements.txt
+          cache-dependency-path: app/requirements.txt
+
+      - name: Install system libraries for a headless Kivy window
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libgl1-mesa-dri libegl1
 
       - name: Install dependencies
-        run: python -m pip install -r kivy/requirements.txt
+        run: python -m pip install -r app/requirements.txt
 
       - name: Check for PII in log statements
         run: |
           # Payment-critical code must never interpolate raw SMS bodies into
           # logs. Catches reintroductions at CI time.
           ! grep -rnE '(log|logger|Logger)\.(debug|info|warning|error|exception)\(.*\b(body|raw_message|message_body)\b' \
-            kivy/paynet/payment kivy/paynet/sms kivy/paynet/overlay \
+            app/paynet/payment app/paynet/sms app/paynet/overlay \
             || (echo "::error::Log statement leaks SMS body content" && exit 1)
 
       - name: Run tests
-        working-directory: kivy
+        working-directory: app
         env:
           KIVY_NO_ARGS: "1"
           KIVY_NO_CONSOLELOG: "1"

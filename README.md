@@ -44,7 +44,7 @@ A declined transaction and a payment that never starts are different problems. I
 
 **A call ending is not a payment confirmation.** Neither rail gives a reliable success callback. Incoming bank messages are matched only during an active payment window, duplicate messages do not create duplicate results, and a missing confirmation never becomes an assumed outcome.
 
-**History stays on the device.** Payment records live in a local SQLite database in the app's data directory. At-rest encryption (SQLCipher with an Android Keystore-protected key) is not yet carried over to the Python build — see [MIGRATION.md](MIGRATION.md#parity-risks).
+**History stays on the device.** Payment records live in a local SQLite database in the app's data directory. At-rest encryption (SQLCipher with an Android Keystore-protected key) is not yet carried over to the Python build — see [docs/SECURITY.md](docs/SECURITY.md).
 
 **Your PIN stays with your bank.** Enter it in the bank's USSD or call flow. PayNet does not read or store it.
 
@@ -54,29 +54,72 @@ You need Python 3.11 or later.
 
 ```sh
 git clone https://github.com/rajarshidattapy/paynet.git
-cd paynet/kivy
+cd paynet/app
 python -m pip install -r requirements.txt
 python main.py               # launch the app in a desktop window
 python -m pytest tests -q    # run the test suite
 ```
 
-On desktop, everything that needs a phone (USSD dialling, the IVR call, SMS reception, camera, the overlay during a call) is replaced by a stand-in, so no real payment is ever triggered. Each `render_*.py` script in `kivy/` renders one screen headlessly so you can check it visually.
+On desktop, everything that needs a phone (USSD dialling, the IVR call, SMS reception, camera, the overlay during a call) is replaced by a stand-in, so no real payment is ever triggered. Each `render_*.py` script in `app/` renders one screen headlessly so you can check it visually.
 
-Android packaging (buildozer plus pyjnius bindings for SMS, telephony, camera and the overlay) is not done yet — see [MIGRATION.md](MIGRATION.md). Once it exists, using the app will need **Android 10 or later**, an **Indian SIM linked to a UPI-enabled bank account**, and cellular coverage with support for your chosen route.
+## Running it on an Android phone
+
+The packaging exists (`app/buildozer.spec`, a manifest hook, a Java SMS
+receiver and pyjnius bindings) but **has never been built or run on a
+device**, so expect to debug the first build. Buildozer only runs on Linux or
+macOS; on Windows use WSL2 with Ubuntu.
+
+Build from your Linux home directory, not from `/mnt/c` or `/mnt/r` (builds on
+mounted Windows drives are slow and trip over file permissions):
+
+```sh
+sudo apt update
+sudo apt install -y git zip unzip openjdk-17-jdk python3-pip python3-venv \
+    autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
+git clone https://github.com/rajarshidattapy/paynet.git ~/paynet
+python3 -m venv ~/buildozer-venv && . ~/buildozer-venv/bin/activate
+pip install buildozer "cython<3"
+cd ~/paynet/app
+buildozer android debug      # first run downloads the Android SDK and NDK: several GB, 20-60 minutes
+```
+
+The APK is written to `app/bin/`. To install it:
+
+- **With a cable:** turn on Developer options and USB debugging on the phone,
+  then `adb install -r bin/<the-apk>.apk`. From WSL it is easier to copy the APK
+  to Windows and run `adb` from the Windows platform-tools.
+- **Without one:** send the APK to the phone and open it, allowing installs
+  from that source when asked.
+
+On first launch grant Phone, SMS, Camera, Contacts and Notifications, and
+allow "Display over other apps". On Android 13+ a sideloaded app's SMS
+permission is blocked until you open App info, tap the three-dot menu and
+choose "Allow restricted settings". Python logs show up with
+`adb logcat -s python`. If the SDK download fails on API 36, `android.api` in
+`buildozer.spec` is the setting to lower (`app/tests/test_packaging.py` pins
+it to 36 for parity with the Kotlin app, so change both).
+
+You need **Android 10 or later**, an **Indian SIM linked to a UPI-enabled bank
+account**, and cellular coverage with support for your chosen route.
+
+Known limits of the current build: the in-call guidance overlay is not started
+by any flow yet, payment history is stored unencrypted, and the debug APK is
+signed with the public Android debug key, so do not distribute it (see
+[docs/SECURITY.md](docs/SECURITY.md)).
 
 ## Reading the code
 
-Python and Kivy, stdlib `sqlite3` for persistence. The app is the `paynet` package under `kivy/`. Start here:
+Python and Kivy, stdlib `sqlite3` for persistence. The app is the `paynet` package under `app/`. Start here:
 
 | File | What to look for |
 | :--- | :--- |
-| [`payment/call_string.py`](kivy/paynet/payment/call_string.py) | Recipient and amount validation before constructing the call's DTMF string. |
-| [`payment/session.py`](kivy/paynet/payment/session.py) | Payment lifecycle and state transitions (`PaymentSessionManager`). |
-| [`telephony/call_manager.py`](kivy/paynet/telephony/call_manager.py) | Dialler interaction, call state and audio restoration, behind a fakeable `PhonePlatform`. |
-| [`overlay/service.py`](kivy/paynet/overlay/service.py) | The on-screen guide during a call. |
-| [`sms/pipeline.py`](kivy/paynet/sms/pipeline.py) | Matching bank SMS to the active payment window, with de-duplication. |
+| [`payment/call_string.py`](app/paynet/payment/call_string.py) | Recipient and amount validation before constructing the call's DTMF string. |
+| [`payment/session.py`](app/paynet/payment/session.py) | Payment lifecycle and state transitions (`PaymentSessionManager`). |
+| [`telephony/call_manager.py`](app/paynet/telephony/call_manager.py) | Dialler interaction, call state and audio restoration, behind a fakeable `PhonePlatform`. |
+| [`overlay/service.py`](app/paynet/overlay/service.py) | The on-screen guide during a call. |
+| [`sms/pipeline.py`](app/paynet/sms/pipeline.py) | Matching bank SMS to the active payment window, with de-duplication. |
 
-More detail lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/TESTING.md](docs/TESTING.md) and [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+More detail lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ## Security
 
@@ -84,4 +127,4 @@ PayNet touches payment flows, USSD dialling and SMS parsing. **Do not file publi
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). PayNet is an independent project, not affiliated with NPCI, any bank or any telecom operator.
+Apache License 2.0 — see [LICENSE](LICENSE). PayNet is an independent project, not affiliated with NPCI, any bank or any telecom operator.

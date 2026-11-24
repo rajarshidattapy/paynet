@@ -1,17 +1,17 @@
 # SMS build integration
 
-SMS source integration. APK binaries are not published, and the current
-Python/Kivy code cannot be packaged as an APK yet (Android packaging is
-feature 17 in [MIGRATION.md](../MIGRATION.md)).
+SMS source integration. APK binaries are not published. The Python/Kivy code
+has buildozer packaging (`app/buildozer.spec`) that has not been built or run
+on a device yet.
 
-- The Kivy app is a port of the SMS variant of the earlier Kotlin app; it reports its version as `1.0.0-sms` (`AppContainer` in `kivy/paynet/app.py`). The Kotlin variant's separate application ID (`com.paynet.app.sms`), version code and launcher label belong to Android packaging and are not defined in the Python code yet.
-- Original parser and SMS pipeline from Flowpayup/Payments-Without-Internet commit cd56960, ported to `kivy/paynet/sms/` (`parser.py`, `detector.py`, `pipeline.py`, `receiver.py`, `notifier.py`).
+- The Kivy app is a port of the SMS variant of the earlier Kotlin app; it reports its version as `1.0.0-sms` (`AppContainer` in `app/paynet/app.py`). The Kotlin variant's application ID (`com.paynet.app.sms`) is reproduced by `app/buildozer.spec` (domain `com.paynet.app` + name `sms`); its version code is not.
+- Original parser and SMS pipeline from Flowpayup/Payments-Without-Internet commit cd56960, ported to `app/paynet/sms/` (`parser.py`, `detector.py`, `pipeline.py`, `receiver.py`, `notifier.py`).
 - RECEIVE_SMS only, no READ_SMS. Matching is restricted to an active operation window.
 - Bank-message results replace manual outcome prompts in this variant.
 - The parser is unchanged by the port. Starting a fresh operation (`TransactionDetector.start_operation`) clears stale amount/recipient filters.
-- The Android side — assembling an SMS from its PDUs in a broadcast receiver, posting the result notification, launching the result screen from the background — is injected callables in the port and has not been written or run on a device.
+- The Android side — assembling an SMS from its PDUs in the Java `PayNetSmsReceiver`, forwarding it through `PayNetSmsBridge`, posting the result notification and launching the result screen — is written (`app/android-src/`, `app/paynet/platform/android.py`) but has not been run on a device.
 
-Run and test from `kivy/`:
+Run and test from `app/`:
 
     python main.py
     python -m pytest tests -q

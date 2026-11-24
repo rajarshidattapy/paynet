@@ -16,8 +16,8 @@
 ## Testing
 
 <!-- How you verified this works. Examples:
-     - `cd kivy && python -m pytest tests -q` passes.
-     - Checked the screen with the matching `kivy/render_*.py` harness.
+     - `cd app && python -m pytest tests -q` passes.
+     - Checked the screen with the matching `app/render_*.py` harness.
      - Triggered the QR → USSD → SMS flow with HDFC test SMS.
      - Confirmed Settings screen still renders.
 -->
@@ -28,7 +28,7 @@
 
 ## Checklist
 
-- [ ] `cd kivy && python -m pytest tests -q` passes
-- [ ] `cd kivy && python main.py` launches
+- [ ] `cd app && python -m pytest tests -q` passes
+- [ ] `cd app && python main.py` launches
 - [ ] Self-review of the diff completed
 - [ ] Documentation / comments updated where behavior changed

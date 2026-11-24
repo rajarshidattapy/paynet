@@ -7,8 +7,8 @@ switch, or a telco's IVR menu. This is PayNet's honest answer to "how do
 you know it works" without one.
 
 Verification happens in layers, each covering what the layer below it
-cannot. One caveat applies to all of them today: the Python port has not yet
-been packaged for Android (feature 17 in [MIGRATION.md](../MIGRATION.md)).
+cannot. One caveat applies to all of them today: the Android build of the
+Python port (`app/buildozer.spec`) has never been built or run on a device.
 Everything that only exists on a device — dialling, call-state callbacks, SMS
 broadcast reception, notifications, camera decode, the overlay window — is an
 injected callable that the tests replace with a fake. Those bindings are
@@ -20,7 +20,7 @@ Pure logic, no device, no real call, no real SMS. The whole suite runs in
 seconds:
 
 ```bash
-cd kivy
+cd app
 python -m pytest tests -q
 ```
 
@@ -28,17 +28,17 @@ CI runs the same command on every push and pull request (under `xvfb-run`,
 because modules that import Kivy widgets need a display even when no window
 is opened). The money-path suites:
 
-- **[`test_sms_parser.py`](../kivy/tests/test_sms_parser.py)** — the
-  bank-SMS matching logic ([`paynet/sms/parser.py`](../kivy/paynet/sms/parser.py)),
+- **[`test_sms_parser.py`](../app/tests/test_sms_parser.py)** — the
+  bank-SMS matching logic ([`paynet/sms/parser.py`](../app/paynet/sms/parser.py)),
   exercised end-to-end via `parse()` across a corpus covering every
   supported bank, success/failure/credit/non-UPI-debit-alert shapes, and
   amount-format edge cases.
-  [`test_sms_regex.py`](../kivy/tests/test_sms_regex.py) covers the
+  [`test_sms_regex.py`](../app/tests/test_sms_regex.py) covers the
   individual regex-backed building blocks (bank detection, dedup key
   convergence, amount tolerance) the same way.
-- **[`test_payment_session.py`](../kivy/tests/test_payment_session.py)** —
+- **[`test_payment_session.py`](../app/tests/test_payment_session.py)** —
   the payment lifecycle state machine
-  ([`paynet/payment/session.py`](../kivy/paynet/payment/session.py)), driven
+  ([`paynet/payment/session.py`](../app/paynet/payment/session.py)), driven
   with a fake call-state source, a fake store, a fake clock and a manual
   watchdog. Covers the PENDING-before-dial invariant, every terminal
   transition (Success/Failed/NeedsReview/Cancelled/Timeout — where a Timeout
@@ -49,18 +49,18 @@ is opened). The money-path suites:
   real-thread race tests
   (`test_truly_concurrent_confirmations_exactly_one_claims_the_session`,
   `test_concurrent_cancel_and_confirmation_never_disagree`).
-- **[`test_sms_pipeline.py`](../kivy/tests/test_sms_pipeline.py)**,
-  **[`test_sms_receiver_notifier.py`](../kivy/tests/test_sms_receiver_notifier.py)**
-  and **[`test_payment_window.py`](../kivy/tests/test_payment_window.py)** —
+- **[`test_sms_pipeline.py`](../app/tests/test_sms_pipeline.py)**,
+  **[`test_sms_receiver_notifier.py`](../app/tests/test_sms_receiver_notifier.py)**
+  and **[`test_payment_window.py`](../app/tests/test_payment_window.py)** —
   orphaned-row adoption, unrelated-credit handling, operation-window expiry
   and dedup (including a concurrent double-delivery), the receiver's guards,
   and closing the SMS window on every cancel route.
-- **[`test_database.py`](../kivy/tests/test_database.py)** — the sqlite
+- **[`test_database.py`](../app/tests/test_database.py)** — the sqlite
   lifecycle guards: a confirmation never rewrites a cancelled row, and only
   expired PENDING rows are discarded.
-- **[`test_call_string.py`](../kivy/tests/test_call_string.py)** — the DTMF
+- **[`test_call_string.py`](../app/tests/test_call_string.py)** — the DTMF
   dial-string builder, golden strings plus injection-neutralization cases.
-- **[`test_qr_scanner.py`](../kivy/tests/test_qr_scanner.py)** — UPI QR URI
+- **[`test_qr_scanner.py`](../app/tests/test_qr_scanner.py)** — UPI QR URI
   parsing, the analyzer's normal-then-inverted decode order and duplicate
   latch, and the scanner flow (session begin, dial-once guard, dial failure
   cancelling the session). The ZXing decode itself is an injected callable
@@ -73,13 +73,13 @@ Python helpers rather than inside widgets.
 
 ### Visual checks — headless screen renders (manual)
 
-`kivy/render_*.py` are dev-only scripts that build one screen in a
+`app/render_*.py` are dev-only scripts that build one screen in a
 fixed-size window, put it in a named state, and save a screenshot under
 `/downloads/`. They are how the port's screens were compared against the
 Kotlin originals. They are not run in CI. For example:
 
 ```bash
-cd kivy
+cd app
 python render_result.py failed
 python render_home.py empty legacy
 ```
@@ -91,10 +91,10 @@ accepts.
 
 There are currently **no tests that run on a device or emulator**, and no
 emulator job in CI. The Kotlin app's instrumented suite (including its
-synthetic SMS integration tests) was not ported, because there is no Android
+synthetic SMS integration tests) was not ported, because there is no verified Android
 build of the Python app to run it against yet.
 
-This layer comes back with Android packaging (feature 17). The persistence
+This layer comes back once the Android build runs on a device. The persistence
 side has a second debt: the sqlite schema has no version number and no
 migrations (see [ARCHITECTURE.md](ARCHITECTURE.md#persistence)), so the next
 schema change must land with its migration and a test for it.
@@ -106,12 +106,12 @@ an SMS reaching the receiver actually flows through session confirmation,
 persistence, and the result. The Kotlin app closed that gap with a
 debug-only broadcast receiver driven over `adb`. The Python port has no
 receiver to drive yet, but the same goal is reachable more directly: the
-ingestion pipeline ([`paynet/sms/pipeline.py`](../kivy/paynet/sms/pipeline.py))
+ingestion pipeline ([`paynet/sms/pipeline.py`](../app/paynet/sms/pipeline.py))
 is a plain function, so you can feed it a bank SMS with the real detector,
 session manager and sqlite repository wired together, no SIM, bank or call
 involved.
 
-Save this as a script and run it from `kivy/` with `python - < script.py`
+Save this as a script and run it from `app/` with `python - < script.py`
 (so `paynet` is importable):
 
 ```python
@@ -153,11 +153,11 @@ print(repo.get_transaction_by_id(txn_id).status)
 It should print a `SUCCESS` result for ₹500, a `Success` session state, and
 a `SUCCESS` row — the same outcome a real bank SMS produces.
 
-What this does **not** cover is the part that is still missing: the Android
-receiver binding that turns an `SMS_RECEIVED` broadcast into the
-`handle_sms(sender, body)` call, and the notification and result-screen
-launch behind `notifier`/`open_result`. Those can only be verified on a
-device once packaging exists.
+What this does **not** cover is the Android side: the Java receiver
+(`PayNetSmsReceiver` / `PayNetSmsBridge`) that turns an `SMS_RECEIVED`
+broadcast into the `handle_sms(sender, body)` call, and the notification and
+result-screen launch behind `notifier`/`open_result`. Those are written but
+can only be verified on a device.
 
 ### Money-path scenarios worth re-running
 
@@ -200,15 +200,16 @@ cleanly on a given operator, whether 123Pay's IVR flow still matches the
 expected DTMF timing, and whether a bank's SMS template still matches what
 the corpus expects. That requires a real device with a real SIM.
 
-For the Python port this gate does not exist yet: there is no Android build
-to put on a device. When packaging lands, the device-only items listed under
-*Not verified from desktop* in [MIGRATION.md](../MIGRATION.md) are the
-minimum it must cover before any release.
+For the Python port this gate has not been run: the Android build has never
+been put on a device. Before any release it must cover at least the `*99#`
+and 123Pay calls on a real SIM, SMS reception through the Java receiver,
+call-state callbacks and audio restore, camera/QR decode, the contact picker,
+and the in-call overlay (which no flow starts yet).
 
 ## What this doesn't cover
 
 Layers 1 and 3 are hermetic and can lag reality if a bank changes its SMS
 template — that's exactly what Layer 4 exists to catch before a release
-ships, and exactly why growing the Layer 1 corpus (see "Adding a bank SMS
-template" in [CONTRIBUTING.md](CONTRIBUTING.md)) is one of the most valuable
-contributions this project can take.
+ships, and exactly why growing the Layer 1 corpus (add a `BankCase` to `BANK_CORPUS` in
+[`app/tests/test_sms_parser.py`](../app/tests/test_sms_parser.py)) is one of
+the most valuable contributions this project can take.

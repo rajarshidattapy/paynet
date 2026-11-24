@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Flowpay
 # Buildozer packaging spec for the PayNet Kivy port (feature 17).
-# Manifest parity target: app/src/main/AndroidManifest.xml in the Kotlin app.
+# Manifest parity target: app/src/main/AndroidManifest.xml in the Kotlin app
+# (last present at commit de292ba).
 
 [app]
 
 # (str) Title of your application
 title = PayNet
 
-# (str) Package name — matches the Kotlin applicationId (app/build.gradle.kts).
-package.name = paynet.sms
+# (str) Package name — buildozer joins domain + name, so domain
+# com.paynet.app + name sms gives the Kotlin applicationId com.paynet.app.sms
+# (app/build.gradle.kts at commit de292ba).
+package.name = sms
 
 # (str) Package domain (needed for android/java packaging)
 package.domain = com.paynet.app
@@ -19,6 +22,14 @@ source.dir = .
 
 # (list) Source files to include (empty = all)
 source.include_exts = py,png,jpg,kv,atlas,json
+
+# (list) Top-level directories kept out of the APK: tests, the dev render
+# harness output, and build-time-only inputs (the p4a hook and the Java
+# sources, which android.add_src below adds on its own).
+source.exclude_dirs = tests, snapshot_failures, p4a, android-src, bin, .buildozer, .venv
+
+# (list) Patterns kept out of the APK: the dev-only headless render scripts.
+source.exclude_patterns = render_*.py
 
 # (str) Application versioning (method 1)
 version = 1.0.0-sms

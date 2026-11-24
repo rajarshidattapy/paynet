@@ -24,6 +24,7 @@ titles are the strings.xml values.
 from __future__ import annotations
 
 import logging
+import zlib
 from typing import Callable, Optional
 
 from ..utils.currency import inr
@@ -59,8 +60,11 @@ def notify_result(result: dict, post: Optional[Callable[[int, str, str], None]] 
     try:
         title = status_title(result.get("status") or "")
         text = notification_text(result.get("amount") or "", result.get("bank_name") or "")
-        notification_id = hash(result.get("transaction_id") or "")
+        # Android's notify() takes a 32-bit int; Python's hash() is a
+        # 64-bit, per-process-randomised value that would overflow it.
+        notification_id = zlib.crc32(
+            (result.get("transaction_id") or "").encode("utf-8")) & 0x7FFFFFFF
         if post is not None:
             post(notification_id, title, text)
-    except (PermissionError, RuntimeError) as e:
+    except Exception as e:  # noqa: BLE001 - best-effort by contract
         log.warning("Could not post payment result notification: %s", e)

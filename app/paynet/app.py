@@ -57,8 +57,18 @@ class AppContainer:
         self.repository = TransactionRepository(self.database)
         self.main_view_model = MainViewModel()
         self.transaction_view_model = TransactionViewModel(self.repository)
+        # Feature 17: the Android platform bindings. create_bindings()
+        # returns None off-device; every seam below then keeps its
+        # device-only no-op default and nothing platform-side is touched.
+        # Built BEFORE the coordinator: the session manager must share the
+        # one coordinator that owns the platform telephony adapter, or it
+        # would never see a call start or end on a device.
+        from paynet import platform as paynet_platform
+        self.bindings = paynet_platform.create_bindings()
         # One telephony listener for the whole app; no adapter off-device.
-        self.call_coordinator = CallStateCoordinator(telephony=None)
+        self.call_coordinator = CallStateCoordinator(
+            telephony=(self.bindings.telephony_adapter
+                       if self.bindings is not None else None))
         self.payment_session_manager = PaymentSessionManager(
             store=self.repository, coordinator=self.call_coordinator)
         # The operation-window detector; SMS ingestion itself is wired to
@@ -74,22 +84,24 @@ class AppContainer:
             data_dir,
             os.environ.get("PAYNET_INSTALL_METRICS_URL", ""),
             version_name="1.0.0-sms")
-        # Feature 17: the Android platform bindings. create_bindings()
-        # returns None off-device; every seam below then keeps its
-        # device-only no-op default and nothing platform-side is touched.
-        from paynet import platform as paynet_platform
-        self.bindings = paynet_platform.create_bindings()
         if self.bindings is not None:
-            self.call_coordinator = CallStateCoordinator(
-                telephony=self.bindings.telephony_adapter)
             self.install_reporter.poster = self.bindings.metrics_poster
             self.permission_manager = PermissionManager(
                 self.bindings.permission_checker,
-                can_draw_overlays=self.bindings.permission_checker.can_draw_overlays)
+                can_draw_overlays=self.bindings.can_draw_overlays)
             self.call_manager = CallManager(self.bindings.phone_platform)
         else:
             self.permission_manager = PermissionManager()
             self.call_manager = None
+        # PayNetApplication.onCreate: a cancelled payment must also close the
+        # SMS operation window, and PENDING rows whose deadline passed while
+        # the app was dead are discarded.
+        from paynet.payment.window import PaymentWindowObserver
+        self.payment_window_observer = PaymentWindowObserver(
+            self.payment_session_manager,
+            on_disarm=self.transaction_detector.stop_operation)
+        self.payment_window_observer.start()
+        self.payment_session_manager.reconcile_stale_pending()
 
 
 class PayNetApp(App):
@@ -507,6 +519,12 @@ class PayNetApp(App):
                 self.container.payment_session_manager,
                 show_toast=self._show_toast,
                 on_setup_required=self._open_setup_required,
+                # Off-device there is no call manager: the desktop build
+                # never dials, but the SMS window still opens.
+                place_call=(self.container.call_manager.initiate_upi123_call
+                            if self.container.call_manager is not None
+                            else None),
+                detector=self.container.transaction_detector,
             )
         return self._transfer_initiator
 
