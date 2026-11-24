@@ -161,6 +161,10 @@ class Glyph(Widget):
             elif self._kind == "close":
                 Line(points=[x + w * .22, y + h * .22, x + w * .78, y + h * .78], width=lw, cap="round")
                 Line(points=[x + w * .22, y + h * .78, x + w * .78, y + h * .22], width=lw, cap="round")
+            elif self._kind == "error":
+                # Exclamation mark: filled bar + dot, tinted with the status color.
+                Rectangle(pos=(x + w * .43, y + h * .36), size=(w * .14, h * .46))
+                Ellipse(pos=(x + w * .43, y + h * .14), size=(w * .14, w * .14))
             elif self._kind == "person":
                 Ellipse(pos=(x + w * .3, y + h * .55), size=(w * .4, h * .4))
                 Ellipse(pos=(x + w * .12, y + h * .02), size=(w * .76, h * .42))

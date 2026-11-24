@@ -270,9 +270,9 @@ class _Sheet(FloatLayout):
 
     def _relayout(self, *_):
         self._body.width = self.width
-        self._body.pos = (0, 0)
         self._card.height = min(self._card.height or 0, self.height * 0.80)
         self._card.pos = (self.x, self.y)
+        self._body.pos = self._card.pos
 
     def add_content(self, widget):
         self._content.add_widget(widget)

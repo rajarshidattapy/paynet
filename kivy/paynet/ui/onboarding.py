@@ -69,10 +69,12 @@ class OnboardingPage(FloatLayout):
     def _relayout(self, *_):
         w, h = self.size
         content_w = min(w - dp(48), dp(420))
-        self._column.width = content_w + dp(48)
-        self._column.pos = (self.x + (w - self._column.width) / 2, self.y)
+        # The ScrollView owns the column's position (scroll_y); center the
+        # content with symmetric side padding instead of setting pos.
+        side = (w - content_w) / 2
+        self._column.width = w
         header_offset = h * 0.1875
-        self._column.padding = (dp(24), header_offset, dp(24), dp(24))
+        self._column.padding = (side, header_offset, side, dp(24))
 
     def add_content(self, widget):
         self._stack.add_widget(widget)
@@ -100,8 +102,9 @@ class OnboardingDialog(FloatLayout):
             self._card_bg = RoundedRectangle(pos=self._card.pos,
                                              size=self._card.size,
                                              radius=[dp(24)])
-        self._card.bind(pos=lambda w, _: setattr(w._card_bg, "pos", w.pos),
-                        size=lambda w, _: setattr(w._card_bg, "size", w.size))
+        card_bg = self._card_bg
+        self._card.bind(pos=lambda w, _: setattr(card_bg, "pos", w.pos),
+                        size=lambda w, _: setattr(card_bg, "size", w.size))
         self._body = BoxLayout(orientation="vertical", spacing=0,
                                size_hint=(None, None),
                                padding=(dp(24), dp(24), dp(24), dp(24)))
@@ -118,9 +121,13 @@ class OnboardingDialog(FloatLayout):
         close = Button(size_hint=(None, None), size=(dp(48), dp(48)),
                        background_normal="",
                        background_color=(0, 0, 0, 0))
-        close.add_widget(Glyph("close", theme.TEXT_LIGHT_GRAY,
-                               size_hint=(None, None), size=(dp(22), dp(22)),
-                               pos_hint={"center_x": 0.5, "center_y": 0.5}))
+        glyph = Glyph("close", theme.TEXT_LIGHT_GRAY,
+                      size_hint=(None, None), size=(dp(22), dp(22)))
+        close.add_widget(glyph)
+        def _place_glyph(w, *_):
+            glyph.center = (w.x + w.width / 2, w.y + w.height / 2)
+        close.bind(pos=_place_glyph, size=_place_glyph)
+        _place_glyph(close)
         close.bind(on_release=lambda *_: self._on_dismiss())
         heading.add_widget(close)
         self._body.add_widget(heading)
@@ -129,10 +136,12 @@ class OnboardingDialog(FloatLayout):
             self._body.add_widget(_spacer(8))
             message = _left_label(copy.message, 16, theme.TEXT_LIGHT_GRAY)
             message.line_height = 23 / 16
+            message.size_hint_y = None
+            message.bind(texture_size=lambda w, ts: setattr(w, "height", ts[1]))
             self._body.add_widget(message)
 
         self._content = BoxLayout(orientation="vertical", size_hint=(1, None),
-                                  spacing=0)
+                                  spacing=0, height=0)
         self._content.bind(minimum_height=self._content.setter("height"))
         self._body.add_widget(self._content)
 
@@ -148,8 +157,8 @@ class OnboardingDialog(FloatLayout):
 
     def _relayout(self, *_):
         self._body.width = min(self.width - dp(48), dp(400))
-        self._body.pos = (0, 0)
         self._card.center = (self.center_x, self.center_y)
+        self._body.pos = self._card.pos
 
     def add_content(self, widget):
         self._content.add_widget(widget)
