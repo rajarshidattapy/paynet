@@ -77,12 +77,6 @@ Feature inventory (Kotlin source → planned Python module):
 
 ## Parity risks
 
-- KNOWN ISSUE (in repair): the legacy dashboard's recent-payments rows
-  overprint at one position in headless renders even though the widget
-  tree positions are correct; tracked as a rendering-order/binding bug in
-  LegacyHistoryCard.show_payments. Header, action buttons, and the
-  loading/empty/error states render correctly.
-
 - At-rest DB encryption (SQLCipher + Android Keystore-wrapped key) has no
   drop-in Python equivalent on Android. Target: SQLCipher via a p4a recipe
   if viable; otherwise record the deviation explicitly before merge.
@@ -112,7 +106,7 @@ Feature inventory (Kotlin source → planned Python module):
 | 5 | Payment session state machine | ✅ Done | pytest (27 session tests incl. both real-thread race tests, 1:1) | Coroutines -> synchronous store writes (join invariant satisfied by construction); watchdog = threading.Timer, manual scheduler in tests; StateFlow -> subscribe/listeners |
 | 6 | SMS ingestion pipeline + dedup + operation window | ✅ Done | pytest (9 pipeline tests 1:1 + detector window/dedup/concurrency + receiver guards + notifier mapping) | Android bindings (PDU parsing, goAsync, LocalBroadcastManager, NotificationManager) are injected callables; pyjnius wiring is feature 17, unverified from desktop |
 | 7 | Telephony: call placement, call-state coordination, audio | ✅ Done | pytest (8 coordinator 1:1 + 9 call-manager decision tests) | CallManager ported behind a PhonePlatform protocol; pyjnius platform binding is feature 17, unverified from desktop |
-| 8 | Home dashboard screen (modern variant) | ✅ Done | pytest (4 home tests: sizing formulas, bank-name map, state transitions) + headless render verification (payments/empty/loading/error states) | Modern HomeDashboard + ModernHistoryPanel + brand card/tiles/FAB ported 1:1 (BoxWithConstraints formulas preserved); viewmodels + HomeAppearance landed in part 1; classic LegacyHomeDashboard variant ported in part 3 (render-verified except a payments-row overprint bug, see Parity risks); visual glyphs stand in for vector icons (arrow/QR/gear); loading state uses an ellipsis label instead of CircularProgressIndicator |
+| 8 | Home dashboard screen (modern variant) | ✅ Done | pytest (4 home tests: sizing formulas, bank-name map, state transitions) + headless render verification (payments/empty/loading/error states) | Modern HomeDashboard + ModernHistoryPanel + brand card/tiles/FAB ported 1:1 (BoxWithConstraints formulas preserved); viewmodels + HomeAppearance landed in part 1; classic LegacyHomeDashboard variant ported in part 3 and render-verified (payments/empty/loading/error); rows top-pinned manually instead of LazyColumn scroll (Kivy nested ScrollView viewports do not translate reliably in this build); visual glyphs stand in for vector icons (arrow/QR/gear); loading state uses an ellipsis label instead of CircularProgressIndicator |
 | 9–17 | Remaining features | ⬜ Pending | | |
 
 Test command: `cd kivy && python -m pytest tests -q`

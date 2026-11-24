@@ -346,8 +346,10 @@ class LegacyTransactionItem(ButtonBehavior, FloatLayout):
         self.bind(pos=lambda w, _: setattr(w._bg, "pos", w.pos),
                   size=lambda w, _: setattr(w._bg, "size", w.size))
 
+        # FloatLayout never positions a child that has no pos_hint, so
+        # without the hint the row would sit at the window origin.
         row = BoxLayout(orientation="horizontal", padding=[dp(18), dp(14)],
-                        spacing=dp(12))
+                        spacing=dp(12), pos_hint={"x": 0, "y": 0})
         self.add_widget(row)
 
         labels = BoxLayout(orientation="vertical", spacing=dp(8))
@@ -440,6 +442,8 @@ class LegacyHistoryCard(FloatLayout):
         self._reposition()
 
     def _reposition(self, *_):
+        # Kivy positions are effectively absolute: layouts copy their own
+        # pos into their children, so the body's rect is the right origin.
         for i, child in enumerate(reversed(self._body.children)):
             child.x = self._body.x
             child.width = self._body.width
