@@ -64,6 +64,13 @@ Feature inventory (Kotlin source → planned Python module):
 - **Android APIs via pyjnius** (dialer, telephony callbacks, SMS broadcast,
   contacts, camera, overlay window). CameraX + ZXing can stay as Gradle
   dependencies through buildozer; ZXing decode stays the same library.
+- **Coroutines → synchronous writes + threading.Timer.** The session
+  manager's fire-and-forget coroutine writes become synchronous calls, so
+  the pendingInsertJob-join invariant (a confirmation must never beat the
+  PENDING insert) is satisfied by construction. The verification deadline
+  is a threading.Timer; tests inject a manual scheduler. StateFlow/SharedFlow
+  become value properties + listener lists. Claim-terminal-state-inside-lock
+  before any store write is preserved exactly (RLock).
 - **Unit tests are ported 1:1** where platform-independent (Compose
   `TextFieldValue` selection/saver mechanics are adapted to a small
   Python `TextValue` model).
@@ -96,7 +103,10 @@ Feature inventory (Kotlin source → planned Python module):
 | 2 | App shell + theme | ✅ Done | import smoke | UI placeholder only |
 | 3 | SMS transaction parser | ✅ Done | pytest (full bank corpus + regex blocks, 1:1) | Desktop-verified; broadcast-receiver wiring is feature 6 |
 | 4 | Persistence: transactions, settings | ✅ Done | pytest (DAO guards, mapping, settings) | Flow -> sync queries, SharedPreferences -> JSON prefs; SQLCipher parity pending (see Parity risks) |
-| 5–17 | Remaining features | ⬜ Pending | | |
+| 5 | Payment session state machine | ✅ Done | pytest (27 session tests incl. both real-thread race tests, 1:1) | Coroutines -> synchronous store writes (join invariant satisfied by construction); watchdog = threading.Timer, manual scheduler in tests; StateFlow -> subscribe/listeners |
+| 6 | SMS ingestion pipeline + dedup + operation window | ⬜ Pending | | |
+| 7 | Telephony: call placement, call-state coordination, audio | ◐ Partial | pytest (8 coordinator tests, 1:1) | CallStateCoordinator core ported with pluggable TelephonyAdapter; pyjnius adapter + CallManager pending |
+| 8–17 | Remaining features | ⬜ Pending | | |
 
 Test command: `cd kivy && python -m pytest tests -q`
 Run command: `cd kivy && python main.py`
