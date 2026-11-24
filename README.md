@@ -1,9 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/paynet-wordmark-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/readme/paynet-wordmark-light.png">
-    <img src="docs/readme/paynet-wordmark-light.png" width="240" alt="PayNet">
-  </picture>
+  <img src="docs/readme/paynet-wordmark.png" width="240" alt="PayNet">
 </p>
 
 <h3 align="center">UPI payments, even offline.</h3>
