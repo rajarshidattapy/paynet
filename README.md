@@ -69,27 +69,25 @@ receiver and pyjnius bindings) but **has never been built or run on a
 device**, so expect to debug the first build. Buildozer only runs on Linux or
 macOS; on Windows use WSL2 with Ubuntu.
 
-Build from your Linux home directory, not from `/mnt/c` or `/mnt/r` (builds on
-mounted Windows drives are slow and trip over file permissions):
+Turn on Developer options and USB debugging on the phone, plug it in, keep it
+unlocked, and run this from PowerShell at the repo root:
 
-```sh
-sudo apt update
-sudo apt install -y git zip unzip openjdk-17-jdk python3-pip python3-venv \
-    autoconf libtool pkg-config zlib1g-dev libncurses-dev cmake libffi-dev libssl-dev
-git clone https://github.com/rajarshidattapy/paynet.git ~/paynet
-python3 -m venv ~/buildozer-venv && . ~/buildozer-venv/bin/activate
-pip install buildozer "cython<3"
-cd ~/paynet/app
-buildozer android debug      # first run downloads the Android SDK and NDK: several GB, 20-60 minutes
+```powershell
+.\scripts\android\build-and-install.ps1
 ```
 
-The APK is written to `app/bin/`. To install it:
+It sets up WSL (apt packages, JDK), builds with buildozer inside WSL, and
+installs and launches the APK with `adb`. The first run downloads the Android
+SDK and NDK (several GB, 20-60 minutes) and asks you to accept the SDK
+licenses; add `-SkipSetup` on later runs, or `-NoInstall` to build only. The
+build runs from a copy in the Linux filesystem (`~/paynet-build`), because
+builds on mounted Windows drives are slow and trip over file permissions, and
+it pins Python 3.11 with `uv` (buildozer's toolchain does not work with the
+Python 3.14 that recent Ubuntu releases ship). The APK is copied back to
+`app/bin/`.
 
-- **With a cable:** turn on Developer options and USB debugging on the phone,
-  then `adb install -r bin/<the-apk>.apk`. From WSL it is easier to copy the APK
-  to Windows and run `adb` from the Windows platform-tools.
-- **Without one:** send the APK to the phone and open it, allowing installs
-  from that source when asked.
+To install an APK without a cable, send it to the phone and open it, allowing
+installs from that source when asked.
 
 On first launch grant Phone, SMS, Camera, Contacts and Notifications, and
 allow "Display over other apps". On Android 13+ a sideloaded app's SMS
